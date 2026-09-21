@@ -34,14 +34,14 @@ URL_PADRAO = TEMAS[TEMA].URL_PADRAO
 _trava = threading.Lock()
 
 
-def caminho_pdf(dados: dict) -> Path:
+def caminho_pdf(dados: dict, tamanho: str = "A4") -> Path:
     """Onde o PDF deste município vai parar, sem gerar nada — só instancia
     a classe do tema e lê `output_path` (mesma regra de nome usada por
-    `.gerar()`). Útil pra saber se já existe PDF e comparar `mtime`."""
-    return TEMAS[TEMA](dados).output_path
+    `.gerar()`, incluindo o sufixo `_A3`). Útil pra saber se já existe PDF."""
+    return TEMAS[TEMA](dados, tamanho=tamanho).output_path
 
 
-def gerar_pdf(dados_path: Path) -> tuple[Path, list[str]]:
+def gerar_pdf(dados_path: Path, tamanho: str = "A4") -> tuple[Path, list[str]]:
     """Gera o PDF reaproveitando `gerar_um` (não a classe direto — é ele
     quem carrega os companheiros `_*.json`). Retorna (caminho_do_pdf,
     avisos) — os avisos são a mesma coisa que hoje só aparece no console de
@@ -51,7 +51,7 @@ def gerar_pdf(dados_path: Path) -> tuple[Path, list[str]]:
     with _trava:
         try:
             with contextlib.redirect_stderr(buf):
-                pdf = gerar_um(TEMA, str(dados_path))
+                pdf = gerar_um(TEMA, str(dados_path), tamanho=tamanho)
         finally:
             sys.stderr.write(buf.getvalue())
     avisos = [l for l in buf.getvalue().splitlines() if l.strip()]

@@ -62,7 +62,7 @@ def _companheiros_disponiveis(dados_path: str, tema: str) -> dict[str, Path]:
     return achados
 
 
-def gerar_um(tema: str, dados_path: str) -> Path:
+def gerar_um(tema: str, dados_path: str, tamanho: str = "A4") -> Path:
     if tema not in TEMAS:
         raise ValueError(
             f"Tema '{tema}' desconhecido. Disponíveis: {', '.join(TEMAS.keys())}"
@@ -74,7 +74,7 @@ def gerar_um(tema: str, dados_path: str) -> Path:
         with caminho.open(encoding="utf-8") as f:
             dados[chave] = json.load(f)
 
-    folheto = Cls(dados)
+    folheto = Cls(dados, tamanho=tamanho)
     out = folheto.gerar()
     print(f"[OK] {out}")
     return out
@@ -108,6 +108,8 @@ def main():
     parser.add_argument("--lote",   type=str, help="Glob de JSONs (ex.: 'data/ifem/*.json')")
     parser.add_argument("--pop-minima", type=int, default=None, metavar="N",
                         help="no lote, só municípios com população acima de N")
+    parser.add_argument("--tamanho", type=str, default="A4", choices=("A4", "A3"),
+                        help="tamanho físico do PDF — A3 escala o mesmo design (padrão: A4)")
     parser.add_argument("--listar", action="store_true", help="Lista temas registrados")
     args = parser.parse_args()
 
@@ -136,7 +138,7 @@ def main():
         total, falhas = len(arquivos), 0
         for i, arq in enumerate(arquivos, 1):
             try:
-                gerar_um(args.tema, arq)
+                gerar_um(args.tema, arq, tamanho=args.tamanho)
             except Exception as e:
                 falhas += 1
                 print(f"✗ Erro em {arq}: {e}", file=sys.stderr)
@@ -146,7 +148,7 @@ def main():
             print(f"\nConcluído: {total - falhas}/{total} folhetos"
                   + (f" ({falhas} falha(s))" if falhas else ""))
     elif args.dados:
-        gerar_um(args.tema, args.dados)
+        gerar_um(args.tema, args.dados, tamanho=args.tamanho)
     else:
         parser.error("Use --dados <arquivo.json> ou --lote <glob>")
 

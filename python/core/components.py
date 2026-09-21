@@ -581,12 +581,14 @@ def draw_capa_padrao(c, page_w, page_h, *,
                      logo_path: str | None = None,
                      lado: str = "dir",
                      destaques: list[tuple[str, int | None, int | None]] | None = None,
-                     palavra_capa: str | None = None):
+                     palavra_capa: str | None = None,
+                     palavra_mosaico: str | None = None):
     """Capa padrão FNP, sem depender de nenhuma arte pré-composta de tema:
     fundo branco (ver DESIGN_SYSTEM.md — corrigido de bege em 2026-09-21) +
-    foto full-bleed no topo se `foto_path` existir, senão `palavra_capa`
-    desenhada no alfabeto modular (`draw_alfabeto_modular_palavra`) no lugar
-    onde o IFEM tem o mosaico fotográfico. Faixa inferior (~27% da altura)
+    foto full-bleed no topo se `foto_path` existir (com `palavra_mosaico`
+    soletrada dentro da própria grade do mosaico, ver §5.15), senão
+    `palavra_capa` desenhada no alfabeto modular (`draw_alfabeto_modular_
+    palavra`) no lugar onde o IFEM tem o mosaico fotográfico. Faixa inferior (~27% da altura)
     no MESMO layout da capa real do IFEM (`python/temas/ifem.py::_pag_capa`
     via `core/capa.py` de lá, confirmado lendo o código — ver CLAUDE.md
     Decisão 5): logo à esquerda, barra separadora vertical, e à direita um
@@ -610,7 +612,11 @@ def draw_capa_padrao(c, page_w, page_h, *,
     if foto and foto.exists():
         # Mosaico mascarado pelo vocabulário modular — não a foto lisa (ver
         # DESIGN_SYSTEM.md §5.1 e §5.15, mesma técnica da capa real do IFEM).
-        draw_mosaico_fotografico(c, foto, page_w, faixa_h, page_h)
+        # `palavra_mosaico` soletra dentro do próprio mosaico (mesma célula,
+        # preenchida pela mesma foto) — não é um selo por cima.
+        draw_mosaico_fotografico(c, foto, page_w, faixa_h, page_h,
+                                 palavra_mosaico=palavra_mosaico,
+                                 margem_direita=STRIPE_W if lado == "dir" else 0)
     elif palavra_capa:
         # Sem foto real do município (nenhum piloto tem hoje — ver
         # assets/README.md): o alfabeto modular soletrando a palavra do
@@ -1172,8 +1178,30 @@ def _caminho_cunha(c, cx: float, cy: float, raio: float, ang_inicio: float, exte
     return p
 
 
+# Receita de cada letra em termos das PRÓPRIAS categorias de célula do
+# mosaico (canto de quarto-de-círculo, quadrado cheio, círculo inscrito) —
+# não o traço colorido do §5.14, aqui é a mesma máscara-preenchida-pela-
+# foto de cada célula do mosaico, só que arranjada pra ler como letra.
+# Coordenadas (linha, coluna) relativas ao canto inferior-esquerdo da
+# PRÓPRIA letra (linha 0 = base da letra; 2 linhas de altura, exceto "I",
+# que é só 1 coluna).
+_RECEITA_GLIFO_MOSAICO = {
+    "M": {(1, 0): "br", (1, 1): "bl", (0, 0): "quadrado", (0, 1): "quadrado"},
+    "O": {(1, 0): "br", (1, 1): "bl", (0, 0): "tr", (0, 1): "tl"},
+    # "bl"/"tl" nas duas células da direita criava só UM bojo contínuo (lia
+    # como "D", reportado pelo usuário) — "esq" (meio-círculo por aresta,
+    # mesma técnica do glifo original em vetor) cria dois bojos separados
+    # por uma "cintura" no meio, que é o que faz ler como "B".
+    "B": {(1, 0): "quadrado", (0, 0): "quadrado", (1, 1): "esq", (0, 1): "esq"},
+    "I": {(1, 0): "circulo", (0, 0): "quadrado"},
+}
+_LARGURA_GLIFO_MOSAICO = {"M": 2, "O": 2, "B": 2, "I": 1}
+
+
 def draw_mosaico_fotografico(c, foto_path, page_w: float, y0: float, y1: float,
-                             seed: int = 13, cols: int = 8) -> None:
+                             seed: int = 13, cols: int = 8,
+                             palavra_mosaico: str | None = None,
+                             margem_direita: float = 0) -> None:
     """Preenche a faixa vertical [y0, y1] (full-bleed em `page_w`) com a
     MESMA foto recortada por uma grade de janelas modulares — não uma foto
     lisa. Cada célula da grade sorteia (determinístico via `seed`, mesma
@@ -1181,6 +1209,21 @@ def draw_mosaico_fotografico(c, foto_path, page_w: float, y0: float, y1: float,
     círculo (vértice num dos 4 cantos da célula) ou meio círculo (base numa
     das 4 arestas). Fora da forma sorteada, a célula fica em branco — é
     isso que dá o efeito "janela", não um recorte retangular comum.
+
+    `palavra_mosaico` (opcional): soletra a palavra usando as MESMAS
+    células do mosaico (não um selo por cima) — encostada na quina
+    inferior-direita da grade, nas 2 linhas mais próximas da faixa de
+    informação da capa. Só as letras em `_RECEITA_GLIFO_MOSAICO` têm
+    receita; uma letra sem receita é ignorada em silêncio (a palavra
+    inteira não cabendo na largura da grade também degrada assim — nunca
+    quebra a geração por causa de decoração).
+
+    `margem_direita`: reserva colunas inteiras de respiro na borda direita
+    antes de ancorar a palavra ali (não a grade inteira, que continua
+    sangrando até `page_w`) — necessário quando o stripe lateral fica por
+    cima do mosaico (`draw_capa_padrao` com `lado="dir"`): sem isso, a
+    última letra ficava parcialmente escondida atrás do stripe (bug real,
+    visto no primeiro resultado com essa palavra).
 
     Não desenha nada se `foto_path` não existir (fallback documentado em
     `assets/README.md` — a página fica só com o fundo branco, ou o
@@ -1218,12 +1261,44 @@ def draw_mosaico_fotografico(c, foto_path, page_w: float, y0: float, y1: float,
         "baixo": (cell / 2, 0, 0, 180), "cima": (cell / 2, cell, 180, 180),
     }
 
+    # Sobreposição determinística das células que a palavra ocupa —
+    # calculada ANTES do laço principal, pra cada célula só decidir uma vez
+    # entre "faz parte da palavra" ou "sorteio normal do mosaico".
+    sobreposicao: dict[tuple[int, int], str] = {}
+    if palavra_mosaico:
+        letras = [l for l in palavra_mosaico.upper() if l in _RECEITA_GLIFO_MOSAICO]
+        largura_total = sum(_LARGURA_GLIFO_MOSAICO[l] for l in letras)
+        # Colunas inteiras cobertas por `margem_direita` viram respiro —
+        # arredonda pra cima: sobrar um pouco de folga é melhor que a
+        # última coluna ficar meio-escondida atrás do stripe.
+        cols_reservadas = math.ceil(margem_direita / cell) if margem_direita > 0 else 0
+        cols_uteis = cols - cols_reservadas
+        if letras and largura_total <= cols_uteis and linhas >= 2:
+            col_cursor = cols_uteis - largura_total  # encosta na quina útil
+            for letra in letras:
+                for (r, cc), tipo in _RECEITA_GLIFO_MOSAICO[letra].items():
+                    sobreposicao[(r, col_cursor + cc)] = tipo
+                col_cursor += _LARGURA_GLIFO_MOSAICO[letra]
+
     for lin in range(linhas):
         for col in range(cols):
             cx0, cy0 = col * cell, y0 + lin * cell
-            sorteio = rng.random()
-            c.saveState()
-            if sorteio < 0.25:
+            sorteio = rng.random()  # sempre avança o RNG, mesmo em célula sobreposta —
+            c.saveState()           # preserva o padrão sorteado nas outras células.
+            tipo_forcado = sobreposicao.get((lin, col))
+            if tipo_forcado == "quadrado":
+                p = c.beginPath()
+                p.rect(cx0, cy0, cell, cell)
+            elif tipo_forcado == "circulo":
+                p = c.beginPath()
+                p.circle(cx0 + cell / 2, cy0 + cell / 2, cell / 2)
+            elif tipo_forcado in cantos_quarto:
+                dx, dy, ang, ext = cantos_quarto[tipo_forcado]
+                p = _caminho_cunha(c, cx0 + dx, cy0 + dy, cell, ang, ext)
+            elif tipo_forcado in arestas_meio:
+                dx, dy, ang, ext = arestas_meio[tipo_forcado]
+                p = _caminho_cunha(c, cx0 + dx, cy0 + dy, cell / 2, ang, ext)
+            elif sorteio < 0.25:
                 p = c.beginPath()
                 p.rect(cx0, cy0, cell, cell)
             elif sorteio < 0.65:
@@ -1236,6 +1311,16 @@ def draw_mosaico_fotografico(c, foto_path, page_w: float, y0: float, y1: float,
             c.drawImage(img, 0, y0, width=page_w, height=zona_h,
                         preserveAspectRatio=False, mask="auto")
             c.restoreState()
+            # Contorno fino em TODA célula, igual e único (fora do clip, já
+            # restaurado) — mesmo padrão da capa real do IFEM: uma linha só,
+            # bem fina, igual em toda a grade, sem tratamento especial pras
+            # células da palavra (o usuário pediu "padrão", não destaque).
+            # Sem contorno nenhum, duas células vizinhas mostrando um pedaço
+            # contínuo da mesma foto não têm fronteira visível — é o que
+            # também apagava a palavra "MOBI" dentro do mosaico.
+            c.setStrokeColor(WHITE)
+            c.setLineWidth(0.6)
+            c.drawPath(p, fill=0, stroke=1)
 
     c.restoreState()
 

@@ -222,6 +222,36 @@ usuário depois que ficou claro que nada parecido existia neste repo ainda
    de geração de PDF (`python/core/`, `python/temas/mobilidade.py`) não foi
    tocado — o back-office só chama `gerar_um()`, o mesmo ponto de entrada
    do CLI.
+   **Botão "Gerar de novo" removido em 2026-09-21** (a pedido do usuário:
+   não fazia sentido como passo manual separado, já que o PDF deveria
+   "atualizar automaticamente"). Os botões **Preview** e **Baixar PDF**
+   agora sempre regeneram o PDF na hora a partir do JSON atual antes de
+   responder (`views.py::_gerar_e_servir`) — nunca servem um arquivo
+   potencialmente desatualizado do disco. Preview abre em nova aba com
+   `Content-Disposition: inline` (visualizador nativo do navegador); Baixar
+   usa `attachment`. Removidos junto: a URL/view `gerar`, o template
+   `resultado.html` (virou `erro_geracao.html`, só para o caminho de
+   exceção) e o conceito de `pdf_desatualizado` (deixou de existir um PDF
+   "stale" — sempre gera fresco).
+
+   **Toggle A4/A3 adicionado no mesmo dia** (pedido do usuário). A3 não é
+   um redesenho — é o **mesmo design em A4 escalado uniformemente** pro
+   papel maior (`core/base_folheto.py::gerar()`, `c.scale()` aplicado a
+   cada página antes de desenhar; fator ≈ 1,4142, a proporção real ISO
+   A3/A4). Decisão deliberada pra não ter que reescrever `STRIPE_W`/
+   `MARGIN`/`CONTENT_W` (constantes absolutas em pt, ver `tokens.py`) nem
+   qualquer função de `components.py` — o sistema de coordenadas interno de
+   cada `FolhetoFNP` é sempre A4 (`self.W, self.H = PAGE_SIZE`), só o
+   canvas físico final muda. `FolhetoFNP.__init__` ganhou o parâmetro
+   `tamanho: str = "A4"` (`TAMANHOS_VALIDOS = ("A4", "A3")` em
+   `base_folheto.py`), propagado por toda a cadeia: `gerar_um()` (novo
+   parâmetro), `python/gerar.py --tamanho A3` (CLI), `geracao.gerar_pdf()`/
+   `caminho_pdf()` (Django) e a query string `?tamanho=A3` nos links de
+   Preview/Baixar em `lista.html`. Nome do arquivo ganha sufixo `_A3`
+   quando não é o padrão (`_default_output()`), pra não colidir com a
+   versão A4 no disco. No back-office, o toggle é um controle só pra todos
+   os cards (não por município), guardado em `localStorage` — a escolha é
+   lembrada na próxima visita.
 2. **Implementado**: um site estático de distribuição pública
    (`docs/index.html` + GitHub Pages + PDFs hospedados em GitHub Release),
    réplica adaptada de `docs/` do folheto-ifem — sem Django, sem servidor,
@@ -400,6 +430,47 @@ do mesmo usuário: Legislativo FNP, Radar Brasil, IFEM, Subfinanciados) e
 pediu pra usar nesse lugar. Movido para `assets/logos/fnp-logo.png`
 (caminho que o código já esperava — nenhuma mudança de código, só o
 arquivo chegando). Ver `assets/README.md`.
+
+**Quinto adendo (2026-09-21, mesmo dia):** o usuário pediu que "MOBI"
+aparecesse escrito **dentro do próprio mosaico** (não como selo/wordmark
+separado) — "completando a imagem que está aplicada". `draw_mosaico_
+fotografico` ganhou o parâmetro `palavra_mosaico`: em vez de sortear forma
+aleatória pra cada célula, um bloco de células fixo (ancorado na quina
+inferior-direita da grade, nas 2 linhas mais próximas da faixa de
+informação) usa a receita de cada letra — MESMA técnica de máscara+foto do
+resto do mosaico, só que a forma da célula é decidida pela letra, não pelo
+sorteio. `_RECEITA_GLIFO_MOSAICO` traduz cada letra pras categorias que o
+mosaico já usa (canto de quarto-de-círculo, meio-círculo por aresta,
+quadrado cheio, círculo inscrito).
+
+Três problemas reais apareceram nessa primeira versão, todos corrigidos no
+mesmo dia a partir de captura de tela + comentário do usuário:
+1. **"MOBI" ficava ilegível** — duas células vizinhas mostrando um pedaço
+   contínuo da mesma foto não têm fronteira visível nenhuma, então a
+   palavra se perdia dentro da própria imagem. Corrigido adicionando
+   contorno fino (`WHITE`, 1pt) em **toda** célula do mosaico, não só nas
+   da palavra — o que por acaso também aproxima mais do padrão real do
+   IFEM (as janelas do mosaico de lá têm contorno visível). As células da
+   palavra ganham um contorno extra mais forte (`BLUE_DARK`, 1.6pt) por
+   cima, pra garantir que "MOBI" se destaque como intencional.
+2. **A letra "B" lia como "D"** — a receita original usava dois quartos de
+   círculo de canto (`bl`/`tl`) que se fundiam visualmente num bojo só, sem
+   a "cintura" que faz ler como B. Trocado por dois meios-círculos por
+   aresta (`esq`/`esq`, mesma técnica do glifo original em vetor, §5.14) —
+   cada célula vira um semicírculo independente, com um pinçamento visível
+   no meio.
+3. **A última letra ("I") ficava parcialmente atrás do stripe lateral** — o
+   mosaico é desenhado full-bleed até `page_w`, mas o stripe (20pt) é
+   pintado por cima depois, cobrindo a borda direita. Novo parâmetro
+   `margem_direita` reserva colunas inteiras de respiro antes de ancorar a
+   palavra (arredondando pra cima — `math.ceil`), sem mudar a grade
+   aleatória do resto do mosaico (que continua sangrando até a borda física
+   normalmente). `draw_capa_padrao` passa `margem_direita=STRIPE_W` quando
+   `lado="dir"`.
+
+Verificado com recorte de imagem de verdade (PyMuPDF, não só a extração de
+texto do PDF) — as 4 letras ficam claramente legíveis. Ver
+`DESIGN_SYSTEM.md` §5.15.
 
 ---
 

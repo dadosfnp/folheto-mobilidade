@@ -124,6 +124,14 @@ que o gerador calcula ou desenha.
 > decoração simplesmente não aparece (ela nunca compete com conteúdo, só
 > preenche o que sobra).
 
+**A3, disponível desde 2026-09-21 — mesmo design, escalado, não um
+segundo layout.** `FolhetoFNP.gerar()` desenha cada página com A4 lógico
+(`PAGE_SIZE`, `STRIPE_W`, `MARGIN`, `CONTENT_W` — nenhum desses muda) e
+aplica `c.scale()` no canvas físico quando `tamanho="A3"`. Nenhum
+componente em `components.py` sabe que existe A3; a escolha vive só em
+`base_folheto.py`. Ver CLAUDE.md, seção do back-office, para a cadeia
+completa (CLI `--tamanho`, Django `?tamanho=A3`, toggle em `lista.html`).
+
 ---
 
 ## 5. Componentes recorrentes
@@ -304,12 +312,39 @@ mesma foto é redesenhada uma vez por célula da grade, cada vez recortada
   contorno), ou meio círculo com base numa das 4 arestas (~35%, mesma
   técnica do `_glifo_b`). Fora da forma sorteada, a célula fica branca —
   isso é o que dá o efeito "janela fragmentada", não um recorte comum.
+- **Contorno fino (`WHITE`, 0.6pt) em TODA célula, sem exceção** — mesmo
+  padrão da capa real do IFEM (as janelas do mosaico de lá têm contorno
+  visível e uniforme, não são recortes soltos). Uma linha só, uma
+  espessura só, nunca um tratamento especial só pra alguma célula
+  específica ("padrão", não destaque — pedido explícito do usuário).
 - `y0`/`y1` delimitam a faixa vertical onde o mosaico é desenhado
   (full-bleed em `page_w`); um clip externo nessa faixa garante que nenhuma
   célula da última linha vaze pra baixo da faixa de informação da capa.
 - Não desenha nada se o arquivo de foto não existir — degradação
   silenciosa, mesmo espírito do restante dos componentes decorativos (ver
   §5.11).
+
+**`palavra_mosaico` — soletra dentro da própria grade, não um selo por
+cima.** Em vez de sortear a forma de cada célula do bloco ocupado pela
+palavra, usa a receita fixa de cada letra (`_RECEITA_GLIFO_MOSAICO` —
+mesmas categorias de célula do mosaico: canto de quarto-de-círculo, meio
+círculo por aresta, quadrado, círculo inscrito). Ancorada na quina
+inferior-direita da grade (2 linhas mais próximas da faixa de informação).
+
+- `margem_direita`: reserva colunas inteiras de respiro antes de ancorar a
+  palavra, sem mudar a grade aleatória (que continua sangrando até a borda
+  física normalmente) — necessário porque o stripe lateral (20pt) é pintado
+  por cima do mosaico depois; sem essa margem, a última letra ficava
+  parcialmente escondida atrás dele. `draw_capa_padrao` passa
+  `margem_direita=STRIPE_W` quando `lado="dir"`.
+- A receita de "B" usa dois meios-círculos por aresta (`esq`/`esq`), não
+  dois quartos de círculo de canto — a versão de canto fundia os dois
+  bojos num só (lia como "D"); o meio-círculo por aresta cria a "cintura"
+  que faz ler como B.
+- Como toda célula já tem contorno uniforme (ver acima), a palavra não
+  precisa de nenhum tratamento visual extra pra se destacar — a própria
+  regularidade da forma (2 letras de largura par, alinhadas à grade) já lê
+  como intencional dentro do mosaico aleatório ao redor.
 
 ---
 

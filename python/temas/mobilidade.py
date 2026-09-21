@@ -143,6 +143,7 @@ class FolhetoMobilidade(FolhetoFNP):
             lado="dir",
             destaques=destaques,
             palavra_capa="MOBI",
+            palavra_mosaico="MOBI",
         )
 
     # ─── Página 2: Apresentação + KPIs + Mortalidade 2024 ────────────────────
