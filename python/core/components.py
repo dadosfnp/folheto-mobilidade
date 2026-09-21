@@ -582,7 +582,8 @@ def draw_capa_padrao(c, page_w, page_h, *,
                      lado: str = "dir",
                      destaques: list[tuple[str, int | None, int | None]] | None = None,
                      palavra_capa: str | None = None,
-                     palavra_mosaico: str | None = None):
+                     palavra_mosaico: str | None = None,
+                     palavra_stripe: str | None = None):
     """Capa padrão FNP, sem depender de nenhuma arte pré-composta de tema:
     fundo branco (ver DESIGN_SYSTEM.md — corrigido de bege em 2026-09-21) +
     foto full-bleed no topo se `foto_path` existir (com `palavra_mosaico`
@@ -600,7 +601,10 @@ def draw_capa_padrao(c, page_w, page_h, *,
     posição colorida + "de N municípios"), não mais selos circulares
     (mudou em 2026-09-21 pra bater com o layout real do IFEM). Item com
     `posicao`/`total` ausente é pulado em silêncio (não é um dado
-    obrigatório do folheto, só um destaque a mais quando existe)."""
+    obrigatório do folheto, só um destaque a mais quando existe).
+
+    `palavra_stripe`: soletra a palavra verticalmente dentro do stripe
+    lateral (§5.16) — mesmo lettermark que o IFEM tem em toda página."""
     from pathlib import Path
 
     faixa_h = page_h * 0.27
@@ -726,6 +730,8 @@ def draw_capa_padrao(c, page_w, page_h, *,
 
     draw_stripe(c, page_w, page_h, lado)
     draw_page_number(c, page_w, 1, lado)
+    if palavra_stripe:
+        draw_lettermark_stripe(c, palavra_stripe, page_w, page_h, lado)
 
 
 # ─── Cards estilo landing IFEM (categoria + sub-cards aninhados) ─────────────
@@ -1339,52 +1345,59 @@ _PALETA_MODULAR = (BLUE_DARK, BLUE, BLUE_MID, YELLOW_DARK)
 _TRACO_MODULAR = 2.2  # espessura do traço — precisa ler como logotipo, não esboço fino
 
 
-def _glifo_m(c, x0, y0, m, cores):
+def _glifo_m(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
     """'M': dois quartos de círculo formando as duas cristas do topo (mesmo
-    vértice, no centro do bloco 2m×2m) + dois quadrados na base."""
+    vértice, no centro do bloco 2m×2m) + dois quadrados na base. Em cor
+    única (sem a alternância de cor por wedge que a capa usa), as duas
+    cristas se fundiam visualmente num arco só, liso — ficava indistinguível
+    do 'A' (reportado pelo usuário no lettermark do stripe, §5.16). A linha
+    reta do vértice até o topo do arco marca a "costura" entre as cristas
+    mesmo com as duas na mesma cor."""
     box = (x0, y0, x0 + 2 * m, y0 + 2 * m)
-    c.setLineWidth(_TRACO_MODULAR)
+    c.setLineWidth(traco)
     c.setStrokeColor(cores[0])
     c.wedge(*box, 90, 90, stroke=1, fill=0)
     c.setStrokeColor(cores[1])
     c.wedge(*box, 0, 90, stroke=1, fill=0)
+    c.setStrokeColor(cores[0])
+    c.line(x0 + m, y0 + m, x0 + m, y0 + 2 * m)
     c.setStrokeColor(cores[2])
     c.rect(x0, y0, m, m, fill=0, stroke=1)
     c.rect(x0 + m, y0, m, m, fill=0, stroke=1)
     return 2 * m
 
 
-def _glifo_o(c, x0, y0, m, cores):
+def _glifo_o(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
     """'O': círculo inscrito no bloco 2m×2m, em 4 quartos coloridos —
     mesma leitura do '0' em `Folheto_Alfabeto.jpeg`."""
     box = (x0, y0, x0 + 2 * m, y0 + 2 * m)
-    c.setLineWidth(_TRACO_MODULAR)
+    c.setLineWidth(traco)
     for i, ang in enumerate((0, 90, 180, 270)):
         c.setStrokeColor(cores[i % len(cores)])
         c.wedge(*box, ang, 90, stroke=1, fill=0)
     return 2 * m
 
 
-def _glifo_b(c, x0, y0, m, cores):
+def _glifo_b(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
     """'B': espinha vertical grossa + 2 meios-círculos empilhados,
     abaulando pra direita e quase se tocando no meio (vocabulário "meio
     círculo" do sistema modular, §1) — lido como o corpo da letra, a
     espinha como o traço reto."""
-    c.setLineWidth(_TRACO_MODULAR + 0.6)
+    c.setLineWidth(traco + 0.6)
     c.setStrokeColor(cores[2])
     c.line(x0, y0, x0, y0 + 2 * m)
     r = m * 0.92
-    c.setLineWidth(_TRACO_MODULAR)
+    c.setLineWidth(traco)
     for i, cy in enumerate((y0 + 1.5 * m, y0 + 0.5 * m)):
         c.setStrokeColor(cores[i % len(cores)])
         c.wedge(x0 - r, cy - r, x0 + r, cy + r, 270, 180, stroke=1, fill=0)
     return 2 * m
 
 
-def _glifo_i(c, x0, y0, m, cores):
+def _glifo_i(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
     """'I': círculo sobre quadrado, só a coluna esquerda (mais estreita que
     as outras letras) — mesmo desenho do 'I' em `Folheto_Alfabeto.jpeg`."""
-    c.setLineWidth(_TRACO_MODULAR)
+    c.setLineWidth(traco)
     c.setStrokeColor(cores[0])
     c.circle(x0 + m / 2, y0 + 1.5 * m, m / 2, fill=0, stroke=1)
     c.setStrokeColor(cores[1])
@@ -1392,8 +1405,69 @@ def _glifo_i(c, x0, y0, m, cores):
     return m
 
 
-_GLIFOS_MODULARES = {"M": _glifo_m, "O": _glifo_o, "B": _glifo_b, "I": _glifo_i}
-_LARGURA_GLIFO_MULT = {"M": 2, "O": 2, "B": 2, "I": 1}
+def _glifo_l(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
+    """'L': espinha vertical (2 quadrados à esquerda) + "pé" (1 quadrado
+    embaixo à direita) — mesmo desenho blocado do 'L' em
+    `Folheto_Alfabeto.jpeg`."""
+    c.setLineWidth(traco)
+    c.setStrokeColor(cores[0])
+    c.rect(x0, y0 + m, m, m, fill=0, stroke=1)
+    c.setStrokeColor(cores[1])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    c.setStrokeColor(cores[2])
+    c.rect(x0 + m, y0, m, m, fill=0, stroke=1)
+    return 2 * m
+
+
+def _glifo_d(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
+    """'D': espinha vertical (2 quadrados à esquerda) + um bojo único à
+    direita (2 quartos de círculo com o MESMO vértice — ao contrário do
+    'B', aqui os dois se fundem numa curva só, sem cintura, exatamente
+    porque um bojo contínuo é o que faz ler como D, não como B)."""
+    box = (x0, y0, x0 + 2 * m, y0 + 2 * m)
+    c.setLineWidth(traco)
+    c.setStrokeColor(cores[0])
+    c.rect(x0, y0 + m, m, m, fill=0, stroke=1)
+    c.setStrokeColor(cores[1])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    c.setStrokeColor(cores[2])
+    c.wedge(*box, 0, 90, stroke=1, fill=0)
+    c.wedge(*box, 270, 90, stroke=1, fill=0)
+    return 2 * m
+
+
+def _glifo_a(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
+    """'A': meio-círculo único no topo (abaulando pra cima, vértice no
+    meio da altura) + duas "pernas" (quadrados) na base."""
+    c.setLineWidth(traco)
+    c.setStrokeColor(cores[0])
+    c.wedge(x0, y0, x0 + 2 * m, y0 + 2 * m, 0, 180, stroke=1, fill=0)
+    c.setStrokeColor(cores[2])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    c.rect(x0 + m, y0, m, m, fill=0, stroke=1)
+    return 2 * m
+
+
+def _glifo_e(c, x0, y0, m, cores, traco=_TRACO_MODULAR):
+    """'E': espinha vertical (2 quadrados à esquerda) + topo e base à
+    direita (2 quadrados) — lê como um "C" quadrado; aproximação
+    deliberada (a grade 2×2 não tem uma terceira linha pro travessão do
+    meio de um E "de verdade")."""
+    c.setLineWidth(traco)
+    c.setStrokeColor(cores[0])
+    c.rect(x0, y0 + m, m, m, fill=0, stroke=1)
+    c.rect(x0 + m, y0 + m, m, m, fill=0, stroke=1)
+    c.setStrokeColor(cores[1])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    c.rect(x0 + m, y0, m, m, fill=0, stroke=1)
+    return 2 * m
+
+
+_GLIFOS_MODULARES = {
+    "M": _glifo_m, "O": _glifo_o, "B": _glifo_b, "I": _glifo_i,
+    "L": _glifo_l, "D": _glifo_d, "A": _glifo_a, "E": _glifo_e,
+}
+_LARGURA_GLIFO_MULT = {"M": 2, "O": 2, "B": 2, "I": 1, "L": 2, "D": 2, "A": 2, "E": 2}
 
 
 def largura_alfabeto_modular_palavra(palavra: str, modulo: float, gap: float | None = None) -> float:
@@ -1411,12 +1485,15 @@ def largura_alfabeto_modular_palavra(palavra: str, modulo: float, gap: float | N
 
 
 def draw_alfabeto_modular_palavra(c, palavra: str, x: float, y: float, modulo: float,
-                                  cores=_PALETA_MODULAR, gap: float | None = None) -> float:
+                                  cores=_PALETA_MODULAR, gap: float | None = None,
+                                  traco: float = _TRACO_MODULAR) -> float:
     """Desenha `palavra` no alfabeto modular (vocabulário de quarto de
     círculo / meio círculo / quadrado — DESIGN_SYSTEM.md §1). `x`, `y` é o
     canto inferior-esquerdo; cada letra ocupa uma célula de altura
     `2*modulo` (largura `2*modulo`, ou `modulo` para o 'I'). Cor cíclica a
-    partir de `cores`.
+    partir de `cores`. `traco` é a espessura do traço — o padrão (2.2pt) é
+    pensado pro tamanho grande da capa; um lettermark pequeno (stripe,
+    §5.16) precisa de um traço bem mais fino, senão as formas se fundem.
 
     Só as letras em `_GLIFOS_MODULARES` têm glifo desenhado hoje — uma letra
     sem glifo vira um quadrado vazio (degradação silenciosa: nunca quebra a
@@ -1428,14 +1505,46 @@ def draw_alfabeto_modular_palavra(c, palavra: str, x: float, y: float, modulo: f
     for letra in palavra.upper():
         glifo = _GLIFOS_MODULARES.get(letra)
         if glifo:
-            w = glifo(c, cx, y, modulo, cores)
+            w = glifo(c, cx, y, modulo, cores, traco=traco)
         else:
             c.setStrokeColor(cores[0])
-            c.setLineWidth(1.1)
+            c.setLineWidth(traco)
             c.rect(cx, y, modulo, modulo * 2, fill=0, stroke=1)
             w = modulo
         cx += w + gap
     return cx - gap - x
+
+
+def draw_lettermark_stripe(c, palavra: str, page_w: float, page_h: float,
+                           lado: str = "dir", modulo: float = 7.0) -> None:
+    """Palavra soletrada VERTICALMENTE dentro do stripe lateral, no alfabeto
+    modular (§5.14) — mesmo padrão do folheto-ifem, que tem "IFEM" vertical
+    no stripe via um PNG pré-rotacionado (`core/ifem_assets.py::
+    ifem_lettermark_vertical_path`). Aqui é vetor puro, rotacionado na hora
+    (`canvas.rotate`) — nunca um asset raster, mesma filosofia do resto do
+    alfabeto modular deste projeto.
+
+    Traço bem mais fino que o da capa (`modulo` pequeno pede isso — senão
+    as formas se fundem) e branco translúcido, pra ler como marca d'água
+    discreta no azul do stripe, não competir com o número de página.
+    Centralizado na altura inteira da página; leitura de baixo pra cima
+    (primeira letra embaixo, subindo — pedido explícito do usuário, com uma
+    seta desenhada apontando pra cima sobre o stripe). A rotação do canvas
+    continua a mesma; o que inverte a direção é desenhar a palavra ao
+    contrário (`palavra[::-1]`) — a última letra desenhada (primeira letra
+    da palavra) fica no topo, a primeira desenhada (última letra da
+    palavra) fica embaixo, então ler de baixo pra cima dá a palavra certa."""
+    largura = largura_alfabeto_modular_palavra(palavra, modulo)
+    if largura <= 0:
+        return
+    cx = STRIPE_W / 2 if lado == "esq" else page_w - STRIPE_W / 2
+    c.saveState()
+    c.setStrokeAlpha(0.35)
+    c.translate(cx, (page_h + largura) / 2)
+    c.rotate(-90)
+    draw_alfabeto_modular_palavra(c, palavra[::-1], 0, -modulo, modulo,
+                                  cores=(WHITE, WHITE, WHITE), traco=0.5)
+    c.restoreState()
 
 
 # ─── Decoração de rodapé (alfabeto modular) — preenche o respiro final ───────

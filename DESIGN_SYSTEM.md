@@ -274,12 +274,25 @@ sem PNG) do alfabeto visto em `inspiration/Folheto_Alfabeto.jpeg` do
 folheto-ifem (arquivo não trazido para este repo — só a técnica foi
 reconstruída, letra por letra, a partir da imagem de referência).
 
-- Cada letra é uma função `_glifo_<letra>(c, x0, y0, modulo, cores)` que
-  desenha dentro de uma célula de `2×modulo` (`1×modulo` para o "I", mais
-  estreito) e devolve a largura usada — cadastradas em
-  `_GLIFOS_MODULARES`. Hoje só **M, O, B, I** têm glifo (as 4 letras que o
-  tema mobilidade precisa para soletrar "MOBI"); uma letra sem glifo
-  degrada para um quadrado vazio, nunca quebra a geração.
+- Cada letra é uma função `_glifo_<letra>(c, x0, y0, modulo, cores, traco)`
+  que desenha dentro de uma célula de `2×modulo` (`1×modulo` para o "I",
+  mais estreito) e devolve a largura usada — cadastradas em
+  `_GLIFOS_MODULARES`. Hoje **M, O, B, I, L, D, A, E** têm glifo (as letras
+  que o tema mobilidade precisa para soletrar "MOBI" na capa e
+  "MOBILIDADE" no stripe, §5.16); uma letra sem glifo degrada para um
+  quadrado vazio, nunca quebra a geração.
+- `traco` (espessura do traçado, `_TRACO_MODULAR` por padrão) é parâmetro
+  desde que o stripe (§5.16) passou a reaproveitar os mesmos glifos em
+  traço bem mais fino (0.5pt) — sem isso, o traço grosso da capa ficaria
+  desproporcional dentro dos 20pt do stripe.
+- **M vs. D:** as duas letras usam o mesmo domo de 180° (dois quartos de
+  círculo com o mesmo vértice) — sem mais nada, ficam indistinguíveis. `M`
+  ganha uma linha reta do vértice até o topo do arco (a "costura" entre as
+  duas cristas); `D` não ganha essa linha, porque ali o domo deve ler como
+  uma curva contínua só. Achado ao construir o stripe (§5.16): o traço fino
+  (0.5pt) e a rotação de 90° tornam essa diferença ainda mais sutil que na
+  capa — QA visual (recorte via PyMuPDF, nunca só "gerou sem erro") pegou o
+  caso antes de qualquer PDF real sair com M lendo como D.
 - `largura_alfabeto_modular_palavra(palavra, modulo)` calcula a largura
   total sem desenhar nada — usado por `draw_capa_padrao` pra centralizar a
   palavra e escolher o `modulo` (mira ~80% da largura de conteúdo
@@ -345,6 +358,30 @@ inferior-direita da grade (2 linhas mais próximas da faixa de informação).
   precisa de nenhum tratamento visual extra pra se destacar — a própria
   regularidade da forma (2 letras de largura par, alinhadas à grade) já lê
   como intencional dentro do mosaico aleatório ao redor.
+
+### 5.16 Lettermark vertical no stripe (`draw_lettermark_stripe` — NOVO, padrão real do folheto-ifem)
+Toda página (não só a capa) ganha a palavra **"MOBILIDADE"** escrita de
+baixo pra cima dentro do próprio stripe lateral de 20pt — mesmo padrão que
+o folheto-ifem já tinha (lá, um PNG pré-rotacionado; aqui, desenho
+vetorial girado em tempo de execução, sem asset raster nenhum).
+
+- Reaproveita o mesmo alfabeto modular do §5.14 (`_GLIFOS_MODULARES`), só
+  que em módulo bem menor (`modulo=7.0`, contra ~80pt na capa) e traço fino
+  (`0.5pt`) — cabe inteiro dentro da largura do stripe (`STRIPE_W=20pt`).
+- Rotação: `c.translate(cx, (page_h + largura)/2); c.rotate(-90)` — desenha
+  a palavra "deitada" (eixo X normal) e gira o canvas inteiro, não a
+  palavra ponto a ponto; centraliza verticalmente contra a altura da
+  página via `largura_alfabeto_modular_palavra`.
+- `setStrokeAlpha(0.35)` — mais discreto que o alfabeto da capa (que é o
+  elemento principal da página); no stripe é textura de fundo, não deve
+  competir com o conteúdo.
+- `lado` (`"dir"`/`"esq"`) decide qual stripe recebe a palavra — sempre o
+  mesmo lado que `draw_stripe`/`draw_page_number` já usam naquela página,
+  nunca hardcoded.
+- Chamado de `_topo_pagina` em `mobilidade.py` (toda página de conteúdo) e
+  também do fim de `draw_capa_padrao` (capa) — `PALAVRA_STRIPE = "MOBILIDADE"`
+  é constante do tema, não do núcleo; um tema novo passaria a própria
+  palavra ou omitiria o parâmetro.
 
 ---
 

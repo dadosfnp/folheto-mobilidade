@@ -27,6 +27,7 @@ from core.components import (
     draw_kpi_box, draw_destaque_box, draw_table, draw_ranking_item,
     draw_qr_bloco, draw_capa_padrao, draw_line_chart,
     draw_percentual_bar, draw_donut_chart, draw_decoracao_rodape,
+    draw_lettermark_stripe,
 )
 from core.paleta_ranking import cor_por_percentil
 from core.tokens import (
@@ -67,6 +68,12 @@ class FolhetoMobilidade(FolhetoFNP):
     # com um endereço real e testado. Ver CLAUDE.md, seção Pendências.
     URL_PADRAO = "https://fnp.org.br/mobilidade"
 
+    # Lettermark vertical no stripe, em toda página — mesmo padrão do
+    # folheto-ifem (que tem "IFEM" vertical no stripe via PNG
+    # pré-rotacionado; aqui é vetor puro, ver components.py::
+    # draw_lettermark_stripe e DESIGN_SYSTEM.md §5.16).
+    PALAVRA_STRIPE = "MOBILIDADE"
+
     def construir_paginas(self):
         return [
             self._pag_capa,
@@ -94,6 +101,7 @@ class FolhetoMobilidade(FolhetoFNP):
 
         draw_stripe(c, self.W, self.H, lado)
         draw_page_number(c, self.W, n, lado)
+        draw_lettermark_stripe(c, self.PALAVRA_STRIPE, self.W, self.H, lado)
         draw_header(c, self.H, self.titulo_publicacao)
         draw_footer(c, self.W, label_secao)
 
@@ -144,6 +152,7 @@ class FolhetoMobilidade(FolhetoFNP):
             destaques=destaques,
             palavra_capa="MOBI",
             palavra_mosaico="MOBI",
+            palavra_stripe=self.PALAVRA_STRIPE,
         )
 
     # ─── Página 2: Apresentação + KPIs + Mortalidade 2024 ────────────────────

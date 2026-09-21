@@ -18,6 +18,16 @@
 > PDFs de Campinas e Montes Claros já saem com população, frota,
 > mortalidade e internações reais, não mais só o exemplo de Fortaleza.
 > Ver seção "Pendências", "Marco: dados reais dos dois pilotos chegaram".
+>
+> Atualizado em 2026-09-21 — PDF consolidado de 11 para 5 páginas e capa
+> refeita no padrão visual do folheto-ifem (mosaico fotográfico mascarado,
+> alfabeto modular soletrando "MOBI" na capa e "MOBILIDADE" no stripe de
+> toda página, faixa inferior clara com logo+ranking). Ver Decisão 5 (e
+> seus 6 adendos) e `DESIGN_SYSTEM.md` §5.9–§5.16. Back-office ganhou
+> botão de preview (PDF sempre atual, sem "Gerar Novo") e alternância
+> A4/A3; site estático (`docs/`) ganhou rodapé institucional real da FNP e
+> já está publicado via GitHub Pages em `brunofnp.github.io/folheto-
+> mobilidade`.
 
 ---
 
@@ -472,6 +482,38 @@ Verificado com recorte de imagem de verdade (PyMuPDF, não só a extração de
 texto do PDF) — as 4 letras ficam claramente legíveis. Ver
 `DESIGN_SYSTEM.md` §5.15.
 
+**Sexto adendo (2026-09-21, mesmo dia):** dois pedidos finais do usuário,
+ambos sem tocar em dado/componente de conteúdo:
+
+1. **Contorno do mosaico, simplificado.** O item 1 do quinto adendo acima
+   (contorno branco em toda célula + contorno extra azul mais grosso só nas
+   células da palavra) foi **substituído** por um único tratamento
+   uniforme — `WHITE`, `0.6pt`, em toda célula, sem exceção — a pedido
+   explícito do usuário ("a linha do contorno... deve ser em todas as
+   formas... e devem ser linhas bem mais finas"). Não é destaque especial
+   pra palavra nenhuma; a própria regularidade da forma já lê como
+   intencional. Ver `DESIGN_SYSTEM.md` §5.15 (texto já atualizado pra
+   refletir só a versão final, não as duas versões).
+2. **Lettermark vertical "MOBILIDADE" no stripe de toda página** — pedido
+   com 2 capturas de tela do stripe real do folheto-ifem (uma palavra
+   vertical, contornada, dentro da margem azul lateral). Nova primitiva
+   `draw_lettermark_stripe` (`core/components.py`) reaproveita o mesmo
+   alfabeto modular do "MOBI" da capa (§5.14), em módulo bem menor (7pt) e
+   traço fino (0.5pt), rotacionado -90° dentro do stripe de 20pt — chamada
+   de `_topo_pagina` (toda página de conteúdo) e do fim de
+   `draw_capa_padrao` (capa), via constante de tema `PALAVRA_STRIPE =
+   "MOBILIDADE"`. Precisou de 4 glifos novos no alfabeto (`L`, `D`, `A`,
+   `E`, além dos `M`, `O`, `B`, `I` que já existiam pra "MOBI") — nessa
+   adição apareceu um bug real: **M e D usam o mesmo domo de 180°** (dois
+   quartos de círculo com vértice comum) e, sem mais nada, ficam
+   indistinguíveis um do outro. Corrigido dando ao `M` uma linha reta do
+   vértice até o topo do arco (a "costura" entre as duas cristas) que o
+   `D` não tem (ali o domo deve ler como curva contínua). Verificado com
+   recorte PyMuPDF do stripe renderizado de verdade (não só um teste
+   isolado do glifo sozinho) nos 4 datasets — `tools/verificar_texto.py` e
+   `tools/verificar_arte.py` seguem passando 5/5. Ver `DESIGN_SYSTEM.md`
+   §5.14 e §5.16.
+
 ---
 
 ## Diretrizes de Engenharia
@@ -585,5 +627,5 @@ escrever, é dado que precisa vir de outro lugar):
 - **Logo oficial FNP — resolvido em 2026-09-21** (ver `assets/README.md` e Decisão 5, quarto adendo). `assets/logos/fnp-logo.png` existe e aparece no rodapé de todas as páginas de conteúdo e à esquerda da barra separadora na capa.
 - Fontes oficiais (Barlow Condensed + Inter) — baixar com `tools/baixar_fontes.py` antes de qualquer PDF "para valer" (sem elas, sai em Helvetica). Já feito na máquina onde os PDFs de Campinas/Montes Claros foram gerados.
 - **Espaçamento vertical da A4 — resolvido (2026-09-21).** Não foi um recálculo manual de cada componente: `draw_decoracao_rodape` (portado do `_decorar_rodape` do folheto-ifem, ver Decisão 5) preenche o respiro no fim da página com o alfabeto modular (`assets/padroes/arte0|1|2.png`) sempre que sobra espaço — mesmo mecanismo, mesmos arquivos, do folheto-ifem. Ver `DESIGN_SYSTEM.md` §5.13.
-- **Site estático de distribuição (`docs/`) — implementado (Decisão 4).** `docs/index.html` + `tools/build_site.py` + `tools/publicar_release.ps1` prontos e testados; `docs/folhetos.json` já mostra os 2 pilotos reais (com URL de release que ainda não existe no GitHub). Falta: (1) habilitar GitHub Pages em `dadosfnp/folheto-mobilidade` (Settings → Pages → branch `main`, pasta `/docs` — passo manual, fora do alcance de código) e (2) publicar de verdade a release (`tools/publicar_release.ps1`) e recommitar `docs/folhetos.json` na main.
+- **Site estático de distribuição (`docs/`) — publicado, mas hoje só no repo pessoal (2026-09-21).** GitHub Pages está no ar em `https://brunofnp.github.io/folheto-mobilidade/` (Pages configurado no repo `brunofnp/folheto-mobilidade`, branch `next`, pasta `/docs` — não em `dadosfnp`). A release com os PDFs (`v1`) também está hoje em **`brunofnp/folheto-mobilidade`**, não em `dadosfnp/folheto-mobilidade` (produção) — `docs/folhetos.json` aponta pra lá. **Motivo, mesmo problema já visto na Decisão 3:** a conta `brunofnp` só tem `pull` (leitura) em `dadosfnp/folheto-mobilidade`, sem `push` — `gh release create` falhou com 403. Pedir a um admin do org pra adicionar `brunofnp` como colaborador com escrita em `dadosfnp/folheto-mobilidade` é o próximo passo; depois disso: `.\tools\publicar_release.ps1 -Tag v1 -Repo dadosfnp/folheto-mobilidade` e `python tools/build_site.py --release-tag v1` (auto-detecta `production` como owner/repo preferido) pra mover a release/URL de volta pro repo da organização, e então habilitar Pages em `dadosfnp/folheto-mobilidade` também (Settings → Pages → branch `main`, pasta `/docs`) se a distribuição final for lá, não no domínio pessoal.
 - `tools/dados_tratados_para_json.py` está escrito e funcionando para o formato de `data/external/` atual — se esse formato mudar (nova coluna, planilha reestruturada), o script precisa acompanhar.
