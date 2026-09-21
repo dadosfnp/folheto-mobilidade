@@ -19,6 +19,20 @@ fonts/*.ttf
 fonts/*.otf
 !fonts/README.md
 
+# Back-office Django — arquivo temporário do save atômico (ver
+# web/municipios/armazenamento.py::salvar_atomico); só sobrevive a uma
+# falha no meio da escrita, nunca deveria ser commitado.
+data/mobilidade/*.json.tmp
+
+# Dado bruto/externo de origem (SIH, SIM, SENATRAN, IBGE, RM…) usado por
+# tools/dados_tratados_para_json.py para gerar os JSONs de
+# data/mobilidade/*.json — ~7 GB, nunca cabe (nem deveria) no git. Convenção:
+#   data/raw/       — extração original imutável (SIH, SIM em parquet)
+#   data/external/  — dado de referência de terceiros (planilhas auxiliares)
+# Cada dev/máquina mantém sua própria cópia local.
+data/raw/
+data/external/
+
 # Harness Claude Code (local)
 .claude/
 

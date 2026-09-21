@@ -1,0 +1,278 @@
+{
+  "_nota_proveniencia": "Gerado por tools/dados_tratados_para_json.py a partir de data/external/ (populacao_anual.xlsx, area_municipal_2024.xlsx, indicadores_frota.xlsx, indicadores_sim_relatorio.xlsx, indicadores_sih_relatorio.xlsx) — nenhum valor foi estimado ou completado por fora dessas planilhas. Campos que essas fontes não cobrem (ranking_causas_morte, gestao_atual do prefeito, problema.citacao, metodologia, custo_hospitalar, internacoes_por_bairro) ficaram null de propósito — não são estimáveis a partir de SIM/SIH/SENATRAN.",
+  "nome": "Montes Claros",
+  "uf": "MG",
+  "populacao": {
+    "valor": 437601,
+    "ano": 2025
+  },
+  "area_km2": 3589.8,
+  "frota": {
+    "evolucao_pct": {
+      "2003_2010": {
+        "total": 89.4,
+        "automoveis": 62.0,
+        "motocicletas": 143.7
+      },
+      "2011_2020": {
+        "total": 47.4,
+        "automoveis": 49.5,
+        "motocicletas": 38.7
+      },
+      "2021_2025": {
+        "total": 15.7,
+        "automoveis": 12.8,
+        "motocicletas": 13.7
+      },
+      "2003_2025": {
+        "total": 266.8,
+        "automoveis": 204.1,
+        "motocicletas": 340.4
+      }
+    },
+    "atual": {
+      "total": 266521,
+      "automoveis": 110033,
+      "motocicletas": 105833
+    }
+  },
+  "mortalidade_2024": {
+    "total": {
+      "municipio": 20.3,
+      "rm": null,
+      "rm_pos": null,
+      "rm_total": null,
+      "porte": 14.3,
+      "porte_pos": 60,
+      "porte_total": 74,
+      "estado": 15.5,
+      "estado_pos": 535,
+      "estado_total": 853,
+      "brasil": 17.4,
+      "brasil_pos": 2588,
+      "brasil_total": 5570,
+      "capitais": 9.2,
+      "capitais_pos": null,
+      "capitais_total": null
+    },
+    "motociclistas": {
+      "municipio": 3.7,
+      "rm": null,
+      "rm_pos": null,
+      "rm_total": null,
+      "porte": 5.6,
+      "porte_pos": 24,
+      "porte_total": 74,
+      "estado": 4.6,
+      "estado_pos": 534,
+      "estado_total": 853,
+      "brasil": 7.3,
+      "brasil_pos": 2390,
+      "brasil_total": 5570,
+      "capitais": 3.6,
+      "capitais_pos": null,
+      "capitais_total": null
+    },
+    "pedestres": {
+      "municipio": 1.2,
+      "rm": null,
+      "rm_pos": null,
+      "rm_total": null,
+      "porte": 2.8,
+      "porte_pos": 11,
+      "porte_total": 74,
+      "estado": 2.1,
+      "estado_pos": 672,
+      "estado_total": 853,
+      "brasil": 2.6,
+      "brasil_pos": 3765,
+      "brasil_total": 5570,
+      "capitais": 2.2,
+      "capitais_pos": null,
+      "capitais_total": null
+    },
+    "ciclistas": {
+      "municipio": 0.2,
+      "rm": null,
+      "rm_pos": null,
+      "rm_total": null,
+      "porte": 0.8,
+      "porte_pos": 17,
+      "porte_total": 74,
+      "estado": 0.7,
+      "estado_pos": 761,
+      "estado_total": 853,
+      "brasil": 0.7,
+      "brasil_pos": 4725,
+      "brasil_total": 5570,
+      "capitais": 0.4,
+      "capitais_pos": null,
+      "capitais_total": null
+    }
+  },
+  "mortes_serie_historica": {
+    "anos": [
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ],
+    "total": [
+      89,
+      58,
+      57,
+      57,
+      77,
+      81,
+      55,
+      72,
+      51,
+      57,
+      62,
+      63,
+      64,
+      78,
+      88
+    ],
+    "motociclistas": [
+      7,
+      3,
+      3,
+      1,
+      4,
+      3,
+      1,
+      8,
+      5,
+      5,
+      6,
+      10,
+      8,
+      9,
+      16
+    ],
+    "pedestres": [
+      12,
+      7,
+      4,
+      2,
+      4,
+      2,
+      3,
+      5,
+      1,
+      3,
+      1,
+      3,
+      3,
+      3,
+      5
+    ],
+    "ciclistas": [
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      3,
+      3,
+      1,
+      1,
+      1,
+      3,
+      1
+    ]
+  },
+  "internacoes_2025": {
+    "total": {
+      "municipio": 69.2,
+      "porte": 139.1,
+      "estado": 131.5,
+      "brasil": 127.0
+    },
+    "motociclistas": {
+      "municipio": 13.7,
+      "porte": 95.9,
+      "estado": 74.6,
+      "brasil": 83.7
+    },
+    "pedestres": {
+      "municipio": 48.2,
+      "porte": 13.5,
+      "estado": 25.4,
+      "brasil": 16.4
+    },
+    "ciclistas": {
+      "municipio": 3.4,
+      "porte": 10.4,
+      "estado": 10.4,
+      "brasil": 8.8
+    }
+  },
+  "internacoes_serie_historica": {
+    "anos": [
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "total": [
+      15,
+      18,
+      28,
+      94,
+      180,
+      287,
+      151,
+      85,
+      88,
+      118,
+      123,
+      89,
+      147,
+      187,
+      228,
+      303
+    ],
+    "gestao_atual": {
+      "inicio": null,
+      "fim": null
+    }
+  },
+  "ranking_causas_morte": {
+    "fonte": null,
+    "total_causas": null,
+    "_nota": "Não coberto por SIM/SIH/SENATRAN — precisa de dado da Secretaria Municipal de Saúde local (como o exemplo de Fortaleza usou).",
+    "posicao_acidentes_transito": {}
+  },
+  "leitos_uti_hipotetico": {
+    "nota": "Pergunta orientadora do projeto (item 8 do briefing): se não houvesse acidentes de trânsito, quantos leitos de UTI ficariam disponíveis para outras doenças? Cálculo pendente do dado de internação consolidado."
+  },
+  "url": "https://fnp.org.br/mobilidade"
+}

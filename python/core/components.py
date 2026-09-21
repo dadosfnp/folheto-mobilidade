@@ -8,11 +8,12 @@ por mais de uma página vive aqui — temas individuais não devem reimplementar
 from io import BytesIO
 from reportlab.lib.utils import simpleSplit, ImageReader
 
+from .asset_cache import cached_image
 from .tokens import (
     BLUE, BLUE_DARK, BLUE_MID, BLUE_LIGHT, YELLOW, YELLOW_DARK,
-    CREAM_DARK, PAPER, RULE, MUTED, INK, WHITE,
+    CREAM_DARK, RULE, MUTED, INK, WHITE,
     STRIPE_W, MARGIN, CONTENT_W, ASSETS_DIR,
-    FS_EYEBROW, FS_HEADER_FOOTER, FS_BODY, FS_TITLE_CAPA, FS_TITLE_DIVISOR,
+    FS_EYEBROW, FS_HEADER_FOOTER, FS_BODY, FS_TITLE_DIVISOR,
     FS_HEADLINE, FS_CAPTION, FS_SUBTITLE,
     CARD_RADIUS, CARD_TOP_BAR, ROW_HEIGHT,
     QR_SIZE, QR_FILL_COLOR,
@@ -574,58 +575,148 @@ def draw_qr_page(c, page_w, page_h, url: str, n_pagina: int,
 
 
 def draw_capa_padrao(c, page_w, page_h, *,
-                     titulo_capa: str, subtitulo: str,
+                     municipio_nome: str,
+                     eyebrow_capa: str = "",
                      foto_path: str | None = None,
                      logo_path: str | None = None,
-                     lado: str = "dir"):
+                     lado: str = "dir",
+                     destaques: list[tuple[str, int | None, int | None]] | None = None,
+                     palavra_capa: str | None = None):
     """Capa padrão FNP, sem depender de nenhuma arte pré-composta de tema:
-    foto full-bleed (ou fundo BLUE_DARK sólido, se `foto_path` não existir —
-    fallback documentado em assets/README.md) + faixa azul inferior (~25% da
-    altura) com título branco condensado + logo FNP + subtítulo (nome do
-    município/tema). Ver DESIGN_SYSTEM.md §5.1."""
+    fundo branco (ver DESIGN_SYSTEM.md — corrigido de bege em 2026-09-21) +
+    foto full-bleed no topo se `foto_path` existir, senão `palavra_capa`
+    desenhada no alfabeto modular (`draw_alfabeto_modular_palavra`) no lugar
+    onde o IFEM tem o mosaico fotográfico. Faixa inferior (~27% da altura)
+    no MESMO layout da capa real do IFEM (`python/temas/ifem.py::_pag_capa`
+    via `core/capa.py` de lá, confirmado lendo o código — ver CLAUDE.md
+    Decisão 5): logo à esquerda, barra separadora vertical, e à direita um
+    eyebrow pequeno + nome do município grande + até 2 linhas de ranking.
+    Ver DESIGN_SYSTEM.md §5.1.
+
+    `destaques`: até 2 estatísticas de posição pra mostrar na capa, cada
+    uma `(rotulo, posicao, total)` — renderizadas como texto ("RÓTULO" +
+    posição colorida + "de N municípios"), não mais selos circulares
+    (mudou em 2026-09-21 pra bater com o layout real do IFEM). Item com
+    `posicao`/`total` ausente é pulado em silêncio (não é um dado
+    obrigatório do folheto, só um destaque a mais quando existe)."""
     from pathlib import Path
 
     faixa_h = page_h * 0.27
 
+    c.setFillColor(WHITE)
+    c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
     foto = Path(foto_path) if foto_path else None
     if foto and foto.exists():
-        c.drawImage(str(foto), 0, 0, width=page_w, height=page_h,
-                    preserveAspectRatio=False, mask="auto")
-    else:
-        c.setFillColor(BLUE_DARK)
-        c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+        # Mosaico mascarado pelo vocabulário modular — não a foto lisa (ver
+        # DESIGN_SYSTEM.md §5.1 e §5.15, mesma técnica da capa real do IFEM).
+        draw_mosaico_fotografico(c, foto, page_w, faixa_h, page_h)
+    elif palavra_capa:
+        # Sem foto real do município (nenhum piloto tem hoje — ver
+        # assets/README.md): o alfabeto modular soletrando a palavra do
+        # tema ocupa o lugar do mosaico fotográfico do IFEM — mesmo
+        # vocabulário (DESIGN_SYSTEM.md §1), sem inventar fotografia que
+        # não existe. Ver CLAUDE.md Decisão 5.
+        max_w_palavra = page_w - STRIPE_W - MARGIN * 2
+        # Mira ~80% da largura disponível (logotipo dominante, não um
+        # esboço pequeno perdido no branco) — coeficiente calculado a
+        # partir de modulo=1 porque a largura é linear em `modulo` (o gap
+        # também escala com ele), então dá pra resolver direto sem laço.
+        coef = largura_alfabeto_modular_palavra(palavra_capa, 1.0)
+        modulo = min(90.0, (max_w_palavra * 0.8) / coef) if coef else 46.0
+        largura = largura_alfabeto_modular_palavra(palavra_capa, modulo)
+        px = (page_w - largura) / 2
+        py = faixa_h + (page_h - faixa_h) / 2 - modulo
+        draw_alfabeto_modular_palavra(c, palavra_capa, px, py, modulo)
 
-    # Faixa inferior
-    c.setFillColor(BLUE)
-    c.rect(0, 0, page_w, faixa_h, fill=1, stroke=0)
+    # Fio separador entre o topo (foto ou alfabeto modular) e a faixa de
+    # informação — mesmo contraste "banda clara sobre topo" do folheto-ifem
+    # (capa.py, PNG pré-composto foto+banda branca — ver CLAUDE.md Decisão 5).
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.75)
+    c.line(0, faixa_h, page_w, faixa_h)
 
-    x = STRIPE_W + MARGIN if lado == "esq" else MARGIN
-    max_w = page_w - STRIPE_W - MARGIN * 2
+    content_x0 = STRIPE_W + MARGIN if lado == "esq" else MARGIN
+    content_x1 = (page_w - MARGIN) if lado == "esq" else (page_w - STRIPE_W - MARGIN)
+    content_w = content_x1 - content_x0
 
-    # Título (até 3 linhas, quebra automática por '\n' manual do chamador)
-    c.setFillColor(WHITE)
-    titulo_size = FS_TITLE_CAPA
-    font_titulo = F(FONT_NUM_BOLD)
-    linhas = titulo_capa.split("\n")
-    while max(c.stringWidth(l, font_titulo, titulo_size) for l in linhas) > max_w and titulo_size > 24:
-        titulo_size -= 1
-    c.setFont(font_titulo, titulo_size)
-    base_y = faixa_h - 34
-    for i, linha in enumerate(linhas):
-        c.drawString(x, base_y - i * (titulo_size * 0.95), linha)
+    band_top = faixa_h - 26
+    band_bottom = 24
 
-    # Logo FNP (opcional) + subtítulo, na parte de baixo da faixa
+    # Logo FNP à esquerda, centralizada verticalmente na faixa — mesma
+    # posição relativa da logo IFEM na capa real (core/capa.py de lá:
+    # ifem_cx = page_w*0.24). Sem logo (ainda não existe neste repo, ver
+    # assets/README.md), o espaço fica em branco — degradação intencional.
     logo = Path(logo_path) if logo_path else None
-    sub_y = 18
+    logo_cx = content_x0 + content_w * 0.20
     if logo and logo.exists():
-        c.drawImage(str(logo), x, sub_y + 12, width=58, height=21,
+        logo_h = min(60.0, (band_top - band_bottom) * 0.75)
+        logo_w = logo_h * 2.6  # proporção aproximada do wordmark FNP horizontal
+        logo_cy = (band_top + band_bottom) / 2
+        c.drawImage(str(logo), logo_cx - logo_w / 2, logo_cy - logo_h / 2,
+                    width=logo_w, height=logo_h,
                     preserveAspectRatio=True, mask="auto")
-        sub_y_text = sub_y - 2
-    else:
-        sub_y_text = sub_y + 12
-    c.setFillColor(BLUE_LIGHT)
-    c.setFont(F(FONT_TEXTO), 10)
-    c.drawString(x, sub_y_text, subtitulo)
+
+    # Barra separadora vertical entre a logo e o texto — mesma posição
+    # relativa da capa real do IFEM (separador em page_w*0.48 lá).
+    separador_x = content_x0 + content_w * 0.42
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.75)
+    c.line(separador_x, band_bottom, separador_x, band_top)
+
+    text_x = content_x0 + content_w * 0.48
+    text_w = content_x1 - text_x
+
+    # Nome do município — grande, encolhe se não couber na coluna de texto.
+    # Calculado antes de desenhar (só a fonte, não o desenho em si) porque
+    # a altura do bloco de texto inteiro precisa ser conhecida ANTES de
+    # decidir onde começar a desenhar (ver centralização abaixo).
+    nome_size = 20.0
+    font_nome = F(FONT_NUM_BOLD)
+    while c.stringWidth(municipio_nome, font_nome, nome_size) > text_w and nome_size > 12:
+        nome_size -= 1
+
+    itens = [d for d in (destaques or []) if d[1] is not None and d[2]][:2]
+
+    # Bloco de texto centralizado na MESMA linha média da logo — sem isso,
+    # o texto (mais curto que a faixa toda) fica "grudado" no topo mesmo
+    # com a logo bem mais alta e centralizada, lendo como desalinhado
+    # (bug real, reportado pelo usuário no primeiro PDF com esse layout).
+    bloco_h = (17 if eyebrow_capa else 0) + (nome_size + 16) + 36 * len(itens)
+    logo_cy_calc = (band_top + band_bottom) / 2
+    y = min(band_top, logo_cy_calc + bloco_h / 2)
+
+    if eyebrow_capa:
+        c.setFillColor(MUTED)
+        c.setFont(F(FONT_NUM_SEMIBOLD), FS_EYEBROW)
+        c.drawString(text_x, y, eyebrow_capa.upper())
+        y -= 17
+
+    c.setFillColor(BLUE_DARK)
+    c.setFont(font_nome, nome_size)
+    c.drawString(text_x, y, municipio_nome)
+    y -= nome_size + 16
+
+    # Destaques (opcional) — texto "RÓTULO" + posição colorida + "de N
+    # municípios", mesmo formato "RANKING POR X" da capa real do IFEM (não
+    # mais selo circular).
+    if itens:
+        from .paleta_ranking import cor_por_percentil
+        for rotulo, pos, tot in itens:
+            c.setFillColor(MUTED)
+            c.setFont(F(FONT_TEXTO_SEMIBOLD), 7.5)
+            c.drawString(text_x, y, rotulo.upper())
+            y -= 13
+            pos_str = f"{pos:,}ª".replace(",", ".")
+            c.setFillColor(cor_por_percentil(pos, tot))
+            c.setFont(F(FONT_NUM_BOLD), 14)
+            c.drawString(text_x, y, pos_str)
+            pos_w = c.stringWidth(pos_str, F(FONT_NUM_BOLD), 14)
+            c.setFillColor(MUTED)
+            c.setFont(F(FONT_TEXTO), 9)
+            c.drawString(text_x + pos_w + 6, y + 1,
+                        f"de {tot:,}".replace(",", ".") + " municípios")
+            y -= 23
 
     draw_stripe(c, page_w, page_h, lado)
     draw_page_number(c, page_w, 1, lado)
@@ -883,3 +974,445 @@ def draw_line_chart(c, *, series: list[dict], categorias: list,
         y_abaixo -= 16
 
     return y_abaixo
+
+
+# ─── Selo de posição, barra percentual e donut — padrão visual do IFEM ───────
+# Genéricos: nenhuma referência a mortalidade/receita/tema específico aqui.
+# Quem chama decide o texto e a polaridade (ver DESIGN_SYSTEM.md §5.9-5.11).
+
+def draw_ranking_stat_grande(c, pos: int, total: int, label: str,
+                             cx: float, y_top: float, raio: float = 26) -> float:
+    """Selo circular grande com uma posição de ranking — "246º" dentro do
+    círculo, "de 645" embaixo, rótulo curto acima (ex.: "ESTADO"). Cor pela
+    posição via `paleta_ranking.cor_por_percentil` — quem chama decide se
+    é essa ou a invertida, dependendo de qual convenção a fonte do dado usa
+    para "posição 1" (ver CLAUDE.md, Diretrizes de Engenharia).
+
+    Retorna y abaixo do selo."""
+    c.setFillColor(MUTED)
+    c.setFont(F(FONT_TEXTO_SEMIBOLD), FS_CAPTION)
+    c.drawCentredString(cx, y_top, label.upper())
+
+    cy = y_top - 16 - raio
+    if total:
+        from .paleta_ranking import cor_por_percentil
+        cor = cor_por_percentil(pos, total)
+    else:
+        cor = MUTED
+    c.setFillColor(cor)
+    c.circle(cx, cy, raio, fill=1, stroke=0)
+
+    pos_str = f"{pos}º"
+    fs = 20
+    font = F(FONT_NUM_BOLD)
+    while c.stringWidth(pos_str, font, fs) > raio * 1.6 and fs > 9:
+        fs -= 1
+    c.setFillColor(WHITE)
+    c.setFont(font, fs)
+    c.drawCentredString(cx, cy - fs * 0.32, pos_str)
+
+    if total:
+        c.setFillColor(MUTED)
+        c.setFont(F(FONT_TEXTO), FS_CAPTION)
+        c.drawCentredString(cx, cy - raio - 14, f"de {total:,}".replace(",", "."))
+
+    return cy - raio - (26 if total else 10)
+
+
+def draw_percentual_bar(c, pct: float, rotulo: str, x: float, y: float,
+                        w: float, h: float = 10) -> float:
+    """Barra horizontal colorida (0-100%, escala vermelho→verde de
+    `cor_status_landing`) com um rótulo textual acima — o texto vem de
+    fora porque a polaridade muda por métrica (nunca fixar algo tipo
+    "supera X%": pra mortalidade a frase certa é o oposto, ver
+    `mobilidade.py`). `pct` já deve estar na orientação "maior = melhor"
+    antes de chamar.
+
+    Retorna y abaixo da barra."""
+    c.setFillColor(MUTED)
+    c.setFont(F(FONT_TEXTO), FS_CAPTION)
+    c.drawString(x, y, rotulo)
+    y -= 16
+
+    c.setFillColor(RULE)
+    c.roundRect(x, y - h, w, h, h / 2, fill=1, stroke=0)
+
+    pct_c = max(0.0, min(100.0, pct))
+    fill_w = max(w * pct_c / 100, h) if pct_c > 0 else 0
+    if fill_w > 0:
+        c.setFillColor(cor_status_landing(pct_c))
+        c.roundRect(x, y - h, fill_w, h, h / 2, fill=1, stroke=0)
+
+    c.setFillColor(INK)
+    c.setFont(F(FONT_NUM_BOLD), 11)
+    c.drawRightString(x + w, y - h - 13, f"{pct_c:.0f}%")
+
+    return y - h - 26
+
+
+def draw_donut_chart(c, segmentos: list[dict], cx: float, cy: float,
+                     raio: float, raio_interno: float | None = None,
+                     legenda_x: float | None = None, legenda_y: float | None = None) -> float:
+    """Donut chart genérico. `segmentos`: [{"label", "valor", "cor"}, ...].
+    Fatias proporcionais ao valor, começando no topo (12h), sentido
+    horário — furo central (`raio_interno`, default 55% do raio) em
+    branco. Técnica: path poligonal aproximando o arco (sem depender de
+    lib de gráfico externa), mesma usada no folheto-ifem.
+
+    Se `legenda_x`/`legenda_y` forem passados, desenha uma legenda (uma
+    linha por segmento: quadradinho + rótulo + %) a partir dali. Sem
+    segmentos com valor (todos None/zero), não desenha nada e retorna
+    `cy - raio` — degradação silenciosa, é um elemento complementar, não
+    a informação principal da página."""
+    import math
+
+    validos = [s for s in segmentos if s.get("valor")]
+    total = sum(s["valor"] for s in validos)
+    if not total:
+        return cy - raio
+
+    raio_int = raio_interno if raio_interno is not None else raio * 0.55
+
+    start = 90.0
+    for seg in validos:
+        ang = 360 * (seg["valor"] / total)
+        end = start - ang
+        c.setFillColor(seg.get("cor", BLUE))
+        p = c.beginPath()
+        p.moveTo(cx, cy)
+        n_steps = max(6, int(abs(start - end) / 4))
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            a = math.radians(start + (end - start) * t)
+            p.lineTo(cx + raio * math.cos(a), cy + raio * math.sin(a))
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+        start = end
+
+    if raio_int > 0:
+        c.setFillColor(WHITE)
+        c.circle(cx, cy, raio_int, fill=1, stroke=0)
+
+    if legenda_x is not None and legenda_y is not None:
+        ly = legenda_y
+        for seg in validos:
+            pct = seg["valor"] / total * 100
+            c.setFillColor(seg.get("cor", BLUE))
+            c.rect(legenda_x, ly - 1, 8, 8, fill=1, stroke=0)
+            c.setFillColor(INK)
+            c.setFont(F(FONT_TEXTO_SEMIBOLD), 9)
+            c.drawString(legenda_x + 13, ly, seg["label"])
+            c.setFillColor(MUTED)
+            c.setFont(F(FONT_TEXTO), 9)
+            c.drawString(legenda_x + 13 + c.stringWidth(seg["label"], F(FONT_TEXTO_SEMIBOLD), 9) + 6,
+                        ly, f"{pct:.0f}%")
+            ly -= 16
+
+    return cy - raio
+
+
+def draw_qr_bloco(c, url: str, x: float, y_top: float, w: float, h: float = 150) -> float:
+    """Versão compacta do QR code — um card branco com QR + URL, pra
+    encaixar ao lado de outro conteúdo (ex.: a página de metodologia).
+    `draw_qr_page` continua existindo pra quem precisar da versão página
+    inteira (capa de encerramento dedicada).
+
+    Retorna y abaixo do card."""
+    c.setFillColor(WHITE)
+    c.roundRect(x, y_top - h, w, h, CARD_RADIUS, fill=1, stroke=0)
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.6)
+    c.roundRect(x, y_top - h, w, h, CARD_RADIUS, fill=0, stroke=1)
+
+    qr_lado = min(w - 30, h - 50)
+    qr_x = x + (w - qr_lado) / 2
+    qr_y = y_top - 18 - qr_lado
+
+    try:
+        import qrcode as qr_lib
+        qr = qr_lib.QRCode(version=1, box_size=4, border=2)
+        qr.add_data(url)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color=QR_FILL_COLOR, back_color="white")
+        buf = BytesIO()
+        qr_img.save(buf, format="PNG")
+        buf.seek(0)
+        c.drawImage(ImageReader(buf), qr_x, qr_y, width=qr_lado, height=qr_lado)
+    except ImportError:
+        c.setFillColor(MUTED)
+        c.setFont(F(FONT_TEXTO), 8)
+        c.drawCentredString(x + w / 2, qr_y + qr_lado / 2, url)
+
+    c.setFillColor(BLUE_DARK)
+    c.setFont(F(FONT_TEXTO_SEMIBOLD), 8.5)
+    c.drawCentredString(x + w / 2, qr_y - 16, "Acesse")
+    c.setFont(F(FONT_TEXTO_SEMIBOLD), 7.5)
+    c.drawCentredString(x + w / 2, qr_y - 27, url)
+
+    return y_top - h - 10
+
+
+# ─── Mosaico fotográfico mascarado (capa) — técnica real do folheto-ifem ─────
+# A capa real do IFEM não usa a foto retangular lisa: ela aparece fatiada
+# por uma grade de janelas no vocabulário modular (quarto de círculo, meio
+# círculo, quadrado cheio) — ver DESIGN_SYSTEM.md §1 e §5.1. Reconstruído
+# aqui via clipping paths (ReportLab), não um PNG pré-composto: qualquer
+# foto full-bleed passada em `foto_path` ganha o mesmo tratamento.
+
+def _caminho_cunha(c, cx: float, cy: float, raio: float, ang_inicio: float, extensao: float):
+    """Path de uma 'cunha' (pie slice): do vértice (cx,cy) até o início do
+    arco, o arco em si, e de volta ao vértice. Para `extensao=90` é um
+    quarto de círculo (vértice = canto); para `extensao=180`, como o
+    vértice fica exatamente no meio da corda, o resultado é um meio-disco
+    (mesma técnica do glifo 'B', §5.14)."""
+    p = c.beginPath()
+    p.moveTo(cx, cy)
+    p.arcTo(cx - raio, cy - raio, cx + raio, cy + raio, ang_inicio, extensao)
+    p.close()
+    return p
+
+
+def draw_mosaico_fotografico(c, foto_path, page_w: float, y0: float, y1: float,
+                             seed: int = 13, cols: int = 8) -> None:
+    """Preenche a faixa vertical [y0, y1] (full-bleed em `page_w`) com a
+    MESMA foto recortada por uma grade de janelas modulares — não uma foto
+    lisa. Cada célula da grade sorteia (determinístico via `seed`, mesma
+    imagem sempre gera a mesma grade) entre: quadrado cheio, quarto de
+    círculo (vértice num dos 4 cantos da célula) ou meio círculo (base numa
+    das 4 arestas). Fora da forma sorteada, a célula fica em branco — é
+    isso que dá o efeito "janela", não um recorte retangular comum.
+
+    Não desenha nada se `foto_path` não existir (fallback documentado em
+    `assets/README.md` — a página fica só com o fundo branco, ou o
+    chamador usa `palavra_capa` como alternativa, ver `draw_capa_padrao`)."""
+    import math
+    import random
+    from pathlib import Path
+
+    foto = Path(foto_path)
+    if not foto.exists():
+        return
+
+    cell = page_w / cols
+    zona_h = y1 - y0
+    linhas = math.ceil(zona_h / cell)
+    rng = random.Random(seed)
+    img = cached_image(foto)
+
+    c.saveState()
+    zona = c.beginPath()
+    zona.rect(0, y0, page_w, zona_h)
+    c.clipPath(zona, stroke=0, fill=0)
+
+    # Vértice em cada canto da célula, arco de 90° bulindo pro interior —
+    # mesma técnica de `_glifo_m`/`_glifo_o` (§5.14), agora usada como
+    # máscara em vez de contorno.
+    cantos_quarto = {
+        "bl": (0, 0, 0, 90), "br": (cell, 0, 90, 90),
+        "tr": (cell, cell, 180, 90), "tl": (0, cell, 270, 90),
+    }
+    # Base numa aresta, meio-círculo bulindo pro interior — mesma técnica
+    # do glifo 'B'.
+    arestas_meio = {
+        "esq": (0, cell / 2, 270, 180), "dir": (cell, cell / 2, 90, 180),
+        "baixo": (cell / 2, 0, 0, 180), "cima": (cell / 2, cell, 180, 180),
+    }
+
+    for lin in range(linhas):
+        for col in range(cols):
+            cx0, cy0 = col * cell, y0 + lin * cell
+            sorteio = rng.random()
+            c.saveState()
+            if sorteio < 0.25:
+                p = c.beginPath()
+                p.rect(cx0, cy0, cell, cell)
+            elif sorteio < 0.65:
+                dx, dy, ang, ext = rng.choice(list(cantos_quarto.values()))
+                p = _caminho_cunha(c, cx0 + dx, cy0 + dy, cell, ang, ext)
+            else:
+                dx, dy, ang, ext = rng.choice(list(arestas_meio.values()))
+                p = _caminho_cunha(c, cx0 + dx, cy0 + dy, cell / 2, ang, ext)
+            c.clipPath(p, stroke=0, fill=0)
+            c.drawImage(img, 0, y0, width=page_w, height=zona_h,
+                        preserveAspectRatio=False, mask="auto")
+            c.restoreState()
+
+    c.restoreState()
+
+
+# ─── Alfabeto modular (capa) — vocabulário geométrico do folheto-ifem ────────
+# Cada letra é composta só das formas do "sistema modular" (DESIGN_SYSTEM.md
+# §1: quadrado vazio, quarto de círculo, meio círculo), reconstruída em vetor
+# a partir de `inspiration/Folheto_Alfabeto.jpeg` do repo `dadosfnp/folheto-
+# ifem` (não trazido para este repo — só a técnica; ver CLAUDE.md Decisão 5).
+# Genérico: a palavra é sempre um parâmetro, núcleo nunca sabe que o tema
+# mobilidade soletra "MOBI".
+
+_PALETA_MODULAR = (BLUE_DARK, BLUE, BLUE_MID, YELLOW_DARK)
+
+
+_TRACO_MODULAR = 2.2  # espessura do traço — precisa ler como logotipo, não esboço fino
+
+
+def _glifo_m(c, x0, y0, m, cores):
+    """'M': dois quartos de círculo formando as duas cristas do topo (mesmo
+    vértice, no centro do bloco 2m×2m) + dois quadrados na base."""
+    box = (x0, y0, x0 + 2 * m, y0 + 2 * m)
+    c.setLineWidth(_TRACO_MODULAR)
+    c.setStrokeColor(cores[0])
+    c.wedge(*box, 90, 90, stroke=1, fill=0)
+    c.setStrokeColor(cores[1])
+    c.wedge(*box, 0, 90, stroke=1, fill=0)
+    c.setStrokeColor(cores[2])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    c.rect(x0 + m, y0, m, m, fill=0, stroke=1)
+    return 2 * m
+
+
+def _glifo_o(c, x0, y0, m, cores):
+    """'O': círculo inscrito no bloco 2m×2m, em 4 quartos coloridos —
+    mesma leitura do '0' em `Folheto_Alfabeto.jpeg`."""
+    box = (x0, y0, x0 + 2 * m, y0 + 2 * m)
+    c.setLineWidth(_TRACO_MODULAR)
+    for i, ang in enumerate((0, 90, 180, 270)):
+        c.setStrokeColor(cores[i % len(cores)])
+        c.wedge(*box, ang, 90, stroke=1, fill=0)
+    return 2 * m
+
+
+def _glifo_b(c, x0, y0, m, cores):
+    """'B': espinha vertical grossa + 2 meios-círculos empilhados,
+    abaulando pra direita e quase se tocando no meio (vocabulário "meio
+    círculo" do sistema modular, §1) — lido como o corpo da letra, a
+    espinha como o traço reto."""
+    c.setLineWidth(_TRACO_MODULAR + 0.6)
+    c.setStrokeColor(cores[2])
+    c.line(x0, y0, x0, y0 + 2 * m)
+    r = m * 0.92
+    c.setLineWidth(_TRACO_MODULAR)
+    for i, cy in enumerate((y0 + 1.5 * m, y0 + 0.5 * m)):
+        c.setStrokeColor(cores[i % len(cores)])
+        c.wedge(x0 - r, cy - r, x0 + r, cy + r, 270, 180, stroke=1, fill=0)
+    return 2 * m
+
+
+def _glifo_i(c, x0, y0, m, cores):
+    """'I': círculo sobre quadrado, só a coluna esquerda (mais estreita que
+    as outras letras) — mesmo desenho do 'I' em `Folheto_Alfabeto.jpeg`."""
+    c.setLineWidth(_TRACO_MODULAR)
+    c.setStrokeColor(cores[0])
+    c.circle(x0 + m / 2, y0 + 1.5 * m, m / 2, fill=0, stroke=1)
+    c.setStrokeColor(cores[1])
+    c.rect(x0, y0, m, m, fill=0, stroke=1)
+    return m
+
+
+_GLIFOS_MODULARES = {"M": _glifo_m, "O": _glifo_o, "B": _glifo_b, "I": _glifo_i}
+_LARGURA_GLIFO_MULT = {"M": 2, "O": 2, "B": 2, "I": 1}
+
+
+def largura_alfabeto_modular_palavra(palavra: str, modulo: float, gap: float | None = None) -> float:
+    """Largura total que `draw_alfabeto_modular_palavra` vai ocupar, sem
+    desenhar nada — usado pra centralizar a palavra antes de saber onde
+    colocar `x`. Mantida em sincronia com `_GLIFOS_MODULARES`/`_LARGURA_GLIFO_MULT`
+    (letra sem glifo conta como 1 módulo de largura, igual ao fallback de
+    quadrado vazio que `draw_alfabeto_modular_palavra` desenha)."""
+    gap = gap if gap is not None else modulo * 0.35
+    letras = palavra.upper()
+    if not letras:
+        return 0.0
+    total = sum(_LARGURA_GLIFO_MULT.get(l, 1) * modulo for l in letras)
+    return total + gap * (len(letras) - 1)
+
+
+def draw_alfabeto_modular_palavra(c, palavra: str, x: float, y: float, modulo: float,
+                                  cores=_PALETA_MODULAR, gap: float | None = None) -> float:
+    """Desenha `palavra` no alfabeto modular (vocabulário de quarto de
+    círculo / meio círculo / quadrado — DESIGN_SYSTEM.md §1). `x`, `y` é o
+    canto inferior-esquerdo; cada letra ocupa uma célula de altura
+    `2*modulo` (largura `2*modulo`, ou `modulo` para o 'I'). Cor cíclica a
+    partir de `cores`.
+
+    Só as letras em `_GLIFOS_MODULARES` têm glifo desenhado hoje — uma letra
+    sem glifo vira um quadrado vazio (degradação silenciosa: nunca quebra a
+    geração por causa de uma letra que ainda não tem desenho).
+
+    Retorna a largura total desenhada."""
+    gap = gap if gap is not None else modulo * 0.35
+    cx = x
+    for letra in palavra.upper():
+        glifo = _GLIFOS_MODULARES.get(letra)
+        if glifo:
+            w = glifo(c, cx, y, modulo, cores)
+        else:
+            c.setStrokeColor(cores[0])
+            c.setLineWidth(1.1)
+            c.rect(cx, y, modulo, modulo * 2, fill=0, stroke=1)
+            w = modulo
+        cx += w + gap
+    return cx - gap - x
+
+
+# ─── Decoração de rodapé (alfabeto modular) — preenche o respiro final ───────
+# Portada de `_decorar_rodape` do folheto-ifem (python/temas/ifem.py) como
+# primitiva genérica de core — nenhuma referência a tema aqui. É a peça que
+# fechava a lacuna de "identidade" nas páginas com sobra de espaço embaixo
+# (ver DESIGN_SYSTEM.md §5.13, CLAUDE.md Decisão 5).
+
+_ARTES_RODAPE = (
+    ("arte2", 592 / 216),   # faixa alta
+    ("arte1", 591 / 108),   # faixa fina
+    ("arte0", 437 / 39),    # ultra-fina
+)
+# Abaixo disso a arte vira um carimbo perdido no meio da página: melhor
+# descer para a próxima mais fina ou não desenhar nada.
+_LARGURA_MIN_ARTE = 0.6
+
+
+def draw_decoracao_rodape(c, lado: str, y_max: float,
+                          forcar_fina: bool = False, arte: str | None = None) -> None:
+    """Preenche o espaço vazio no fim de uma página de conteúdo com um dos
+    3 padrões modulares (`assets/padroes/arte0|1|2.png`).
+
+    `y_max` é o Y onde o conteúdo real da página terminou: a arte é sempre
+    desenhada abaixo dele, e é esta função — nunca o chamador — quem garante
+    isso, medindo o espaço livre até o rodapé. Uma arte que não cabe é
+    trocada pela próxima mais fina; se nenhuma couber, a página fica sem
+    decoração (respiro em branco é aceitável; conteúdo coberto não é).
+
+    `arte` fixa a preferência ('arte0'|'arte1'|'arte2'); `forcar_fina`
+    começa a busca em 'arte1'. Em ambos os casos é um teto pra busca: ela só
+    desce a lista, nunca sobe para uma arte mais alta do que a pedida."""
+    footer_y = 36
+    base_y = footer_y + 4
+    h_disp = y_max - base_y
+    if h_disp < 20:
+        return
+
+    x0 = STRIPE_W + MARGIN if lado == "esq" else MARGIN
+    w_disp = CONTENT_W
+    padroes_dir = ASSETS_DIR / "padroes"
+
+    preferida = arte or ("arte1" if forcar_fina else "arte2")
+    inicio = next((i for i, (nome, _) in enumerate(_ARTES_RODAPE) if nome == preferida), 0)
+
+    for nome, ratio in _ARTES_RODAPE[inicio:]:
+        img_path = padroes_dir / f"{nome}.png"
+        if not img_path.exists():
+            continue
+        h_cheia = w_disp / ratio
+        if h_cheia <= h_disp:
+            # Cabe inteira: largura total do conteúdo, o encaixe mais limpo.
+            w_fit, h_fit = w_disp, h_cheia
+        else:
+            # Não cabe: encolhe preservando o ratio, só até ainda ler como
+            # faixa (abaixo de LARGURA_MIN_ARTE, tenta a próxima mais fina).
+            h_fit = h_disp
+            w_fit = h_fit * ratio
+            if w_fit < w_disp * _LARGURA_MIN_ARTE:
+                continue
+        img_x = x0 + (w_disp - w_fit) / 2
+        c.drawImage(cached_image(img_path), img_x, base_y,
+                    width=w_fit, height=h_fit,
+                    preserveAspectRatio=True, mask="auto")
+        return

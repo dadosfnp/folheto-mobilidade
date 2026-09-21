@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block titulo %}Folheto Mobilidade{% endblock %}</title>
+{% load static %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<script>
+  /* Mesma paleta/tokens do docs/index.html (site público) — espelhada de
+     python/core/tokens.py. Qualquer cor nova entra lá primeiro.
+     Comentário JS, não Django "{# #}" — dentro de <script>, um comentário
+     de template Django multi-linha corrompe silenciosamente o JS (o
+     tokenizer do Django não trata "{# #}" como multi-linha; sobra texto
+     literal "{#"/"#}" no meio do script, que vira SyntaxError em tempo de
+     execução — já vi isso quebrar um <script> inteiro sem erro nenhum no
+     lado do Django, só um console.error no navegador). */
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: "#1A1A1A", paper: "#FBF8F2", field: "#F6F6F4", rule: "#D9D2C3",
+          'blue-dark': "#122747", blue: "#1B3A6B", muted: "#6B6B6B",
+          'red-burnt': "#C04A1A", green: "#2A8F5C",
+        },
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['"Barlow Condensed"', 'Inter', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<link rel="stylesheet" href="{% static 'municipios/folheto.css' %}">
+</head>
+<body class="min-h-screen bg-white text-ink font-sans">
+<header class="border-b border-rule bg-white/60 backdrop-blur sticky top-0 z-10">
+  <div class="max-w-4xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+    <img src="{% static 'municipios/img/fnp-logo.png' %}" alt="FNP" class="h-7 md:h-8 w-auto shrink-0">
+    <a href="{% url 'municipios:lista' %}" class="title-display text-lg md:text-xl text-blue-dark no-underline">Folheto Mobilidade</a>
+    <p class="hidden sm:block text-xs md:text-sm text-muted leading-tight min-w-0">
+      Geração de folhetos — ferramenta interna, uso local
+    </p>
+    <div class="ml-auto shrink-0">{% block header_extra %}{% endblock %}</div>
+  </div>
+</header>
+<main>
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

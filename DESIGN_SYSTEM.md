@@ -44,21 +44,33 @@ Idêntica ao folheto-ifem — `python/core/tokens.py` é a fonte da verdade.
 | `GREEN`       | `#2A8F5C`  | Pontos fortes, contornos do alfabeto modular        |
 | `RED_BURNT`   | `#C04A1A`  | Pontos de atenção (uso pontual)                     |
 | `CREAM`       | `#F4EFE6`  | Fundo de cards, fundo neutro quente                 |
-| `PAPER`       | `#FBF8F2`  | Fundo de páginas internas                           |
+| `PAPER`       | `#FBF8F2`  | **Não usado como fundo de página** (ver nota abaixo) |
 | `RULE`        | `#D9D2C3`  | Linhas divisórias, bordas sutis                     |
 | `MUTED`       | `#6B6B6B`  | Texto secundário, fonte/captions                    |
 | `INK`         | `#1A1A1A`  | Texto corrido                                       |
 
-**Paleta ordinal (quintis/decis) — atenção à polaridade.** No IFEM, valor
-alto = bem financiado (verde). Em segurança viária, valor alto de
-**mortalidade/internação é sempre pior**, nunca melhor — a polaridade é
-invertida, igual ao que o folheto-ifem já havia enfrentado com o índice de
-risco climático do AdaptaBrasil. Por isso `core/paleta_ranking.py` tem duas
-funções: `cor_por_percentil` (posição 1 = melhor) e
-`cor_por_percentil_invertido` (posição 1 = pior) — **use sempre a segunda
-para qualquer ranking de mortes, sinistros ou internações.** Nunca inverta
-manualmente o percentual na chamada da função "maior é melhor" — é assim que
-um verde acaba sinalizando "aqui morre mais gente".
+**Fundo de página: branco (`WHITE`), não `PAPER`/bege — corrigido em
+2026-09-21, a pedido explícito do usuário.** O fundo bege que o motor herdou
+do folheto-ifem (`PAPER`) não é usado em nenhuma página do tema mobilidade
+hoje (capa nem conteúdo) — `PAPER` continua definido em `tokens.py` (mantido
+do núcleo herdado, sem uso ativo no tema mobilidade hoje). Se um tema futuro
+quiser o bege de volta, é uma decisão de tema, não voltar ao padrão do
+núcleo.
+
+**Paleta ordinal (posição no ranking) — atenção à polaridade.**
+`core/paleta_ranking.py` tem duas funções: `cor_por_percentil` (posição 1 =
+melhor, verde) e `cor_por_percentil_invertido` (posição 1 = pior, verde só
+no fim da lista). **Para os campos de posição que já vêm prontos do dado
+tratado (`*_pos`/`*_total` de `mortalidade_2024`, `ranking_causas_morte`),
+use sempre `cor_por_percentil` (a normal) — nunca a invertida.** A fonte
+(SIM/DATASUS, ver `metodologia` em `indicadores_sim_relatorio.xlsx`) já
+ordena "posição 1 = menor taxa de mortalidade = melhor"; aplicar a função
+invertida em cima disso pintaria a cidade mais segura de vermelho. A
+invertida só serve para um ranking que **você constrói do zero** ordenando
+"maior valor = melhor" (nenhum caso assim existe ainda neste projeto).
+Confirmado visualmente: Campinas (taxa melhor que a média) sai com círculos
+verdes; Montes Claros (taxa pior que a média) sai laranja/amarelo — nunca o
+contrário.
 
 **Travessão (—) é proibido em qualquer texto impresso.** Vale para copy nova
 e para placeholder de valor ausente (usar `n/d`, nunca um traço solto — num
@@ -104,26 +116,67 @@ que o gerador calcula ou desenha.
 - **Rodapé:** label da seção à esquerda + logo FNP à direita (se o arquivo
   existir — ver `assets/README.md`).
 
-> **Pendente de ajuste fino:** o núcleo foi validado tecnicamente em A4 (ver
-> CLAUDE.md), mas os componentes (KPI box, tabela, gráfico de linha) ainda
-> não tiveram o espaçamento vertical recalibrado para aproveitar a altura
-> maior da A4 em relação ao quadrado original — hoje sobra respiro no fim de
-> algumas páginas. Ajustar conforme o conteúdo real for entrando.
+> **Espaçamento vertical da A4 — resolvido (2026-09-21), não mais "ajuste
+> fino pendente":** o respiro que sobrava no fim das páginas de conteúdo
+> agora é preenchido por `draw_decoracao_rodape` (ver §5.13) — o mesmo
+> mecanismo do folheto-ifem, não um recálculo manual de cada componente.
+> Onde o conteúdo real for suficiente para ocupar a página sozinho, a
+> decoração simplesmente não aparece (ela nunca compete com conteúdo, só
+> preenche o que sobra).
 
 ---
 
 ## 5. Componentes recorrentes
 
 ### 5.1 Capa (`core/components.py::draw_capa_padrao`)
-- Foto full-bleed opcional (`_capa_foto` no JSON) — sem foto, fundo
-  `BLUE_DARK` sólido (fallback intencional, ver `assets/README.md`).
-- Faixa azul inferior cobrindo ~27% da altura, título branco condensado bold.
-- Logo FNP + subtítulo (município/tema) na faixa, se o logo existir.
+- Fundo **branco** em toda a página (não bege, não azul — ver §2). A zona
+  acima da faixa mostra `foto_path` — hoje sempre `assets/capa/mobilidade-
+  capa.jpg` (`_capa_foto` no JSON tem prioridade se um piloto ganhar foto
+  própria, ver SCHEMA.md) — **mascarada pelo alfabeto modular**
+  (`draw_mosaico_fotografico`, §5.15), não uma foto lisa retangular. Sem
+  nenhuma foto disponível, `palavra_capa` desenha essa mesma zona no
+  alfabeto modular como palavra (`draw_alfabeto_modular_palavra`, §5.14) —
+  o tema mobilidade passa `palavra_capa="MOBI"` como esse fallback.
+- Fio `RULE` separando a zona de cima (foto ou palavra) da faixa de
+  informação — mesmo contraste "banda clara sobre topo" do folheto-ifem
+  (capa.py de lá usa um PNG pré-composto foto+banda branca; aqui é tudo
+  branco, então o fio é o que ainda marca a transição — ver CLAUDE.md
+  Decisão 5).
+- **Faixa inferior no layout exato da capa real do IFEM** (corrigido em
+  2026-09-21, ver CLAUDE.md Decisão 5): logo FNP à esquerda (centralizada
+  verticalmente, ~20% da largura útil), barra separadora vertical (`RULE`,
+  em ~42% da largura útil), e à direita `eyebrow_capa` (pequeno, caixa
+  alta, `MUTED`) + `municipio_nome` (grande, `BLUE_DARK` bold, encolhe se
+  não couber) + até 2 linhas de `destaques`.
+- `destaques`: cada item vira uma linha "RÓTULO" (caixa alta, pequeno) +
+  posição (grande, cor via `cor_por_percentil`, sufixo "ª") + "de N
+  municípios" — texto, **não mais selo circular** (mudou nesta mesma
+  correção; a versão anterior com círculos foi só uma etapa intermediária,
+  não o padrão final).
+- O bloco de texto (eyebrow + nome + destaques) é **centralizado na mesma
+  linha média da logo**, não ancorado no topo da faixa — a altura do bloco
+  é calculada antes de desenhar (depende do tamanho de fonte do nome e de
+  quantos `destaques` existem) especificamente para isso. Sem essa conta,
+  um bloco de texto mais curto que a logo fica "grudado" no topo enquanto
+  a logo, sempre centralizada, sobra por baixo — leu como desalinhado
+  (reportado pelo usuário no primeiro PDF com este layout).
+
+**Achado que motivou este desenho (2026-09-21):** a capa real do IFEM
+(`dadosfnp/folheto-ifem`, clonado localmente para referência, não
+versionado aqui) **não personaliza foto por município** — `python/temas/
+ifem.py::_pag_capa` sempre carrega o mesmo PNG (`indicadores_fnp_mapa_vivo
+_clean.png`) pra qualquer um dos 5.570 municípios; só o nome e os 2 números
+de ranking são texto dinâmico por cima. O mesmo padrão foi replicado aqui:
+`palavra_capa` é um único desenho fixo (o mesmo "MOBI" pra Campinas, Montes
+Claros ou qualquer piloto futuro), só o texto/ranking da faixa muda.
 
 *Diferença do folheto-ifem: lá a capa usa um PNG pré-composto específico do
 IFEM (`core/capa.py`, não herdado por este repo — era hardcoded a um asset
-que não existe aqui). `draw_capa_padrao` é genérico, reutilizável por
-qualquer tema futuro.*
+que não existe aqui, um mosaico fotográfico do município com o alfabeto
+modular como máscara). `draw_capa_padrao` é genérico, reutilizável por
+qualquer tema futuro, e não depende de fotografia real do município — que
+este projeto não tem para nenhum dos pilotos ainda (`_capa_foto` seguirá
+funcionando no dia em que existir).*
 
 ### 5.2 Divisória de seção (`draw_section_divider`)
 Fundo `BLUE` cheio, quarto de círculo translúcido no canto, capítulo em
@@ -157,30 +210,128 @@ abaixo.
 ### 5.8 Bullets / lista
 Quadrado `BLUE` 8×8pt. Nunca bullets redondos genéricos.
 
+### 5.9 Selo de ranking grande (`draw_ranking_stat_grande` — NOVO)
+Círculo colorido (via `cor_por_percentil`, ver §2) com a posição em número
+grande, "de N" abaixo em fonte menor, rótulo acima em caixa alta. Usado na
+capa (posição no estado/Brasil) e, sem o "de N", como selo numerado de passo
+na página de metodologia (`_selo_numerado` em `mobilidade.py`).
+
+### 5.10 Barra percentual (`draw_percentual_bar` — NOVO)
+Barra horizontal vermelho→verde (via `cor_status_landing`), preenchida até o
+percentual informado. O rótulo é sempre passado pelo chamador — nunca um
+texto fixo tipo "supera X%", porque a polaridade muda conforme a métrica
+(mortalidade não é "quanto maior, melhor").
+
+### 5.11 Donut (`draw_donut_chart` — NOVO)
+Gráfico de rosca genérico, segmentos `{label, valor, cor}`, com legenda
+lateral opcional. Não desenha nada se todos os valores forem `None`/zero
+(degradação silenciosa e intencional — decorativo, não uma tabela; o "n/d"
+já aparece na tabela ao lado). Usado para a distribuição de mortes por modo
+no último ano disponível.
+
+### 5.12 QR compacto (`draw_qr_bloco` — NOVO)
+Card branco arredondado com QR + rótulo "Acesse" + URL, dimensionado para
+encaixar ao lado de outro conteúdo (≈120×150pt) — diferente de
+`draw_qr_page` (§5.7), que pinta a página inteira e segue existindo para um
+tema que queira uma página de encerramento dedicada.
+
+### 5.13 Decoração de rodapé / alfabeto modular (`draw_decoracao_rodape` — NOVO, portado do folheto-ifem)
+Preenche o respiro que sobra no fim de uma página de conteúdo com um dos 3
+padrões modulares (`assets/padroes/arte0|1|2.png`, herdados sem mudança do
+folheto-ifem — ver tabela na abertura deste documento). Portado de
+`_decorar_rodape` (`python/temas/ifem.py`) como primitiva genérica de
+`core/components.py`, sem nenhuma referência a tema.
+
+- `y_max` é o Y onde o conteúdo real terminou — a função mede o espaço livre
+  até o rodapé e escolhe sozinha entre as 3 artes (da mais alta, `arte2`,
+  até a ultra-fina `arte0`); se nenhuma couber, não desenha nada. **Quem
+  mede é a função, nunca o chamador** — cada página só informa onde parou
+  de desenhar, mesma regra que evita o defeito que o folheto-ifem já teve
+  (tabela com a última linha coberta por decoração calculada errado).
+- Chamada no fim de cada uma das 4 páginas de conteúdo do tema `mobilidade`
+  (`mobilidade.py`, um `draw_decoracao_rodape(...)` por página). Na página 5
+  (duas colunas: passos numerados + QR), o `y_max` passado é o menor dos
+  dois — nunca sobrepõe o card de QR, mesmo quando ele termina mais baixo
+  que o texto.
+- É o que resolve o "sobra respiro" documentado como pendência em versões
+  anteriores deste arquivo (§4) — não um recálculo manual de espaçamento
+  por componente.
+
+Verificação objetiva no PDF gerado: `python tools/verificar_arte.py output/`.
+
+### 5.14 Alfabeto modular por palavra (`draw_alfabeto_modular_palavra` — NOVO, técnica reconstruída do folheto-ifem)
+Desenha uma palavra usando só as formas do "sistema modular" (§1: quarto de
+círculo, meio círculo, quadrado) — reconstrução em vetor (ReportLab puro,
+sem PNG) do alfabeto visto em `inspiration/Folheto_Alfabeto.jpeg` do
+folheto-ifem (arquivo não trazido para este repo — só a técnica foi
+reconstruída, letra por letra, a partir da imagem de referência).
+
+- Cada letra é uma função `_glifo_<letra>(c, x0, y0, modulo, cores)` que
+  desenha dentro de uma célula de `2×modulo` (`1×modulo` para o "I", mais
+  estreito) e devolve a largura usada — cadastradas em
+  `_GLIFOS_MODULARES`. Hoje só **M, O, B, I** têm glifo (as 4 letras que o
+  tema mobilidade precisa para soletrar "MOBI"); uma letra sem glifo
+  degrada para um quadrado vazio, nunca quebra a geração.
+- `largura_alfabeto_modular_palavra(palavra, modulo)` calcula a largura
+  total sem desenhar nada — usado por `draw_capa_padrao` pra centralizar a
+  palavra e escolher o `modulo` (mira ~80% da largura de conteúdo
+  disponível, até um teto de 90pt por módulo).
+- Cor cíclica a partir de uma paleta de 4 tons (`_PALETA_MODULAR`:
+  `BLUE_DARK`, `BLUE`, `BLUE_MID`, `YELLOW_DARK`) — mesma família de cores
+  usada em `draw_decoracao_rodape` (§5.13), pra as duas decorações lerem
+  como o mesmo sistema visual.
+- Genérico: a palavra é sempre um parâmetro (`palavra_capa` em
+  `draw_capa_padrao`) — o núcleo nunca sabe que o tema mobilidade soletra
+  "MOBI" especificamente. Um tema novo passaria a própria palavra (e
+  precisaria adicionar glifo pra qualquer letra que ainda não exista em
+  `_GLIFOS_MODULARES`).
+
+### 5.15 Mosaico fotográfico mascarado (`draw_mosaico_fotografico` — NOVO, técnica real do folheto-ifem)
+A capa real do IFEM não mostra a foto como um retângulo liso — ela aparece
+fatiada por uma grade de janelas no vocabulário modular (quarto de círculo,
+meio círculo, quadrado cheio), com branco entre as formas. Reconstruído
+aqui via **clipping paths do ReportLab** (não um PNG pré-composto): a
+mesma foto é redesenhada uma vez por célula da grade, cada vez recortada
+(`canvas.clipPath`) por uma forma diferente.
+
+- Grade determinística: `seed` fixo (padrão 13) garante que a mesma foto
+  sempre produz a mesma grade — regenerar o PDF não muda o resultado, nem
+  produz uma grade diferente por município (é a mesma foto pra todos, ver
+  §5.1 e o achado documentado ali).
+- Cada célula sorteia entre 3 categorias: quadrado cheio (~25%), quarto de
+  círculo com vértice num dos 4 cantos da célula (~40%, mesma técnica de
+  `_glifo_m`/`_glifo_o` em §5.14, aqui usada como máscara em vez de
+  contorno), ou meio círculo com base numa das 4 arestas (~35%, mesma
+  técnica do `_glifo_b`). Fora da forma sorteada, a célula fica branca —
+  isso é o que dá o efeito "janela fragmentada", não um recorte comum.
+- `y0`/`y1` delimitam a faixa vertical onde o mosaico é desenhado
+  (full-bleed em `page_w`); um clip externo nessa faixa garante que nenhuma
+  célula da última linha vaze pra baixo da faixa de informação da capa.
+- Não desenha nada se o arquivo de foto não existir — degradação
+  silenciosa, mesmo espírito do restante dos componentes decorativos (ver
+  §5.11).
+
 ---
 
 ## 6. Estrutura canônica do folheto (tema `mobilidade`)
 
-Diferente da estrutura do folheto-ifem (adaptada ao conteúdo do briefing de
-segurança viária — ver `python/temas/mobilidade.py` e `CLAUDE.md`):
+**Teto rígido: no máximo 5 páginas** (decisão do usuário, registrada em
+`CLAUDE.md`). Isso significa nenhuma página de divisória — o cabeçalho de
+seção vive dentro da própria página de conteúdo, e os pares tabela+gráfico
+que antes eram páginas separadas foram fundidos.
 
-| Pág. | Função                              | Stripe | Status |
-|------|--------------------------------------|--------|--------|
-| 01   | Capa                                | dir    | ✅ implementada |
-| 02   | Apresentação / "O problema" + KPIs  | dir    | ✅ implementada |
-| 03   | Divisória — Mortes no trânsito      | esq    | ✅ implementada |
-| 04   | Tabela: taxa de mortalidade 2024    | dir    | ✅ implementada |
-| 05   | Gráfico: série histórica de mortes  | esq    | ✅ implementada |
-| 06   | Divisória — Internações e custos    | dir    | ✅ implementada |
-| 07   | Tabela: internações por modo        | esq    | ✅ implementada (aceita `null`) |
-| 08   | Gráfico: série de internações       | dir    | ✅ implementada (aceita `null`) |
-| 09   | Ranking de causas de morte + "leitos de UTI" | esq | ✅ implementada |
-| 10   | Metodologia                         | dir    | ✅ implementada |
-| 11   | Encerramento + QR                   | esq    | ✅ implementada |
-| —    | Custo por hospital, por modo        | —      | ❌ pendente de dado (ver CLAUDE.md) |
-| —    | Mapa de internações por bairro (RM) | —      | ❌ pendente de dado + componente novo |
+| Pág. | Função                                        | Stripe | Status |
+|------|------------------------------------------------|--------|--------|
+| 01   | Capa (+ selo de posição no estado/Brasil)      | dir    | ✅ implementada |
+| 02   | "Por que importa" + KPIs + tabela de mortalidade 2024 + barra percentual | esq | ✅ implementada |
+| 03   | Série histórica de mortes + donut por modo + ranking de causas de morte | dir | ✅ implementada (aceita `null`) |
+| 04   | Tabela de internações + série histórica de internações (gestão hachurada) | esq | ✅ implementada (aceita `null`) |
+| 05   | Metodologia (passos numerados) + "leitos de UTI" + QR compacto | dir | ✅ implementada |
+| —    | Custo por hospital, por modo                   | —      | ❌ pendente de dado (ver CLAUDE.md) |
+| —    | Mapa de internações por bairro (RM)            | —      | ❌ pendente de dado + componente novo |
 
-> **Regra de stripe:** alternar lados a cada página (espelho).
+> **Regra de stripe:** alternar lados a cada página (espelho), sem reset —
+> não há mais divisória no meio pra "recomeçar" o padrão.
 
 ---
 
@@ -193,5 +344,5 @@ segurança viária — ver `python/temas/mobilidade.py` e `CLAUDE.md`):
 - [ ] Toda página interna tem cabeçalho e rodapé.
 - [ ] Toda fonte de dado aparece como caption em `MUTED` no fim do gráfico/tabela.
 - [ ] Nenhum valor ausente aparece como traço solto — sempre `n/d`.
-- [ ] Ranking de mortalidade/internação usa `cor_por_percentil_invertido`, nunca a versão normal.
+- [ ] Ranking de mortalidade/internação usa `cor_por_percentil` (normal, posição 1 = melhor), nunca a invertida.
 - [ ] QR code da última página aponta para URL real.

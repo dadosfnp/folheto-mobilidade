@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Segurança Viária — Folhetos Municipais</title>
+<meta name="description" content="Baixe a Ficha de Diagnóstico Preliminar de Segurança Viária do seu município — Frente Nacional de Prefeitas e Prefeitos.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<script>
+  // Paleta espelhada de python/core/tokens.py — mesma identidade visual do
+  // PDF. Qualquer cor nova entra lá primeiro, nunca só aqui (ver CLAUDE.md).
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink:        "#1A1A1A",
+          paper:      "#FBF8F2",
+          field:      "#F6F6F4",
+          rule:       "#D9D2C3",
+          'blue-dark':"#122747",
+          blue:       "#1B3A6B",
+          muted:      "#6B6B6B",
+          'red-burnt':"#C04A1A",
+          green:      "#2A8F5C",
+        },
+        fontFamily: {
+          sans: ['Inter','ui-sans-serif','system-ui','sans-serif'],
+          display: ['"Barlow Condensed"','Inter','sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html { background: #FFFFFF; }
+  body { font-family: 'Inter', sans-serif; color: #1A1A1A; background: #FFFFFF; }
+  .title-display { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+  /* Prévia: recorte quadrado gerado por tools/gerar_preview_landing.py —
+     reservado antes da imagem carregar, pra página não pular durante o load. */
+  .preview-fig { aspect-ratio: 1 / 1; }
+</style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-rule bg-white/60 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+      <span class="title-display text-lg md:text-xl text-blue-dark">Segurança Viária</span>
+      <p class="hidden sm:block text-xs md:text-sm text-muted leading-tight min-w-0">
+        Ficha de Diagnóstico Preliminar — Frente Nacional de Prefeitas e Prefeitos
+      </p>
+      <span class="ml-auto text-xs text-muted hidden md:inline" id="meta"></span>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 pt-8 pb-16">
+    <section class="mb-6">
+      <h2 class="title-display text-2xl sm:text-3xl md:text-4xl text-blue-dark leading-tight">Encontre o relatório do seu município</h2>
+      <p class="text-muted mt-2 max-w-2xl text-sm md:text-base">
+        Digite o nome do município ou a UF para filtrar a lista. Cada folheto
+        traz a comparação da taxa de mortalidade no trânsito, a evolução da
+        frota e o peso das internações por sinistro no sistema de saúde.
+      </p>
+    </section>
+
+    <section class="mb-8" aria-labelledby="modelo-titulo">
+      <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+        <h3 id="modelo-titulo" class="title-display text-xl md:text-2xl text-blue-dark">
+          Como é o folheto
+        </h3>
+        <p class="text-xs text-muted">
+          11 páginas · exemplo: Campinas/SP
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+          <img src="preview/pagina-1.jpg" alt="Capa do folheto, com o nome do município"
+               width="720" height="720" loading="lazy" decoding="async"
+               class="w-full h-full object-cover">
+        </figure>
+        <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+          <img src="preview/pagina-4.jpg" alt="Tabela de taxa de mortalidade no trânsito, comparando o município com RM, porte, estado, Brasil e capitais"
+               width="720" height="720" loading="lazy" decoding="async"
+               class="w-full h-full object-cover">
+        </figure>
+        <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+          <img src="preview/pagina-5.jpg" alt="Gráfico de linha com a evolução das mortes no trânsito por modo, 2010-2024"
+               width="720" height="720" loading="lazy" decoding="async"
+               class="w-full h-full object-cover">
+        </figure>
+      </div>
+
+      <p class="text-xs text-muted mt-2">
+        Capa, taxa de mortalidade e série histórica. Cada folheto compara o
+        município com o recorte metropolitano, cidades de mesmo porte, o
+        estado, o Brasil e as capitais.
+      </p>
+    </section>
+
+    <section class="bg-white rounded-2xl border border-rule p-4 md:p-5 mb-5 flex flex-col md:flex-row gap-3 items-stretch md:items-end">
+      <label class="flex-1">
+        <span class="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">Busca</span>
+        <input id="q" type="search" placeholder="Ex.: Campinas, Montes Claros..."
+               autocomplete="off" autocorrect="off" spellcheck="false"
+               enterkeyhint="search" inputmode="search"
+               class="w-full px-3 py-2 rounded-lg border border-rule bg-field focus:outline-none focus:ring-2 focus:ring-blue-dark/40">
+      </label>
+      <label>
+        <span class="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">UF</span>
+        <select id="uf" class="px-3 py-2 rounded-lg border border-rule bg-field focus:outline-none focus:ring-2 focus:ring-blue-dark/40">
+          <option value="">Todas</option>
+        </select>
+      </label>
+      <label>
+        <span class="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">Ordenar por</span>
+        <select id="sort" class="px-3 py-2 rounded-lg border border-rule bg-field focus:outline-none focus:ring-2 focus:ring-blue-dark/40">
+          <option value="pop_desc">População ↓</option>
+          <option value="pop_asc">População ↑</option>
+          <option value="nome">Nome A→Z</option>
+          <option value="mortalidade_asc">Menor taxa de mortalidade</option>
+          <option value="mortalidade_desc">Maior taxa de mortalidade</option>
+        </select>
+      </label>
+    </section>
+
+    <p id="contador" class="text-sm text-muted mb-3"></p>
+
+    <ul id="lista" class="grid gap-2"></ul>
+
+    <p id="vazio" class="hidden text-muted text-center py-12">
+      Nenhum município encontrado para esta busca.
+    </p>
+  </main>
+
+  <footer class="border-t border-rule mt-4">
+    <div class="max-w-4xl mx-auto px-4 py-5 text-xs text-muted flex flex-col md:flex-row gap-2 md:justify-between">
+      <span>Segurança Viária · Frente Nacional de Prefeitas e Prefeitos</span>
+      <span id="rodape-dados">Folhetos atualizados periodicamente.</span>
+    </div>
+  </footer>
+
+<script>
+(async function() {
+  const $ = (s) => document.querySelector(s);
+  const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const fmtPop = (n) => {
+    if (n == null) return 'n/d';
+    if (n >= 1e6) return (n/1e6).toFixed(1).replace('.', ',') + ' mi';
+    if (n >= 1e3) return Math.round(n/1e3) + ' mil';
+    return String(n);
+  };
+  const fmtTaxa = (n) => n == null ? 'n/d' : String(n).replace('.', ',');
+
+  let indice;
+  try {
+    const r = await fetch('folhetos.json', { cache: 'no-cache' });
+    indice = await r.json();
+  } catch (e) {
+    $('#lista').innerHTML = '<li class="text-red-700">Erro ao carregar folhetos.json</li>';
+    return;
+  }
+
+  const todos = indice.municipios || [];
+  $('#meta').textContent = `${indice.total} município(s) disponível(is)`;
+  $('#rodape-dados').textContent = indice.atualizado
+    ? `Índice atualizado em ${new Date(indice.atualizado).toLocaleDateString('pt-BR')}.`
+    : 'Folhetos atualizados periodicamente.';
+
+  const ufs = [...new Set(todos.map(m => m.uf))].sort();
+  const ufSel = $('#uf');
+  ufs.forEach(uf => {
+    const o = document.createElement('option');
+    o.value = uf; o.textContent = uf;
+    ufSel.appendChild(o);
+  });
+
+  function aplicar() {
+    const termo = norm($('#q').value);
+    const uf = $('#uf').value;
+    const sort = $('#sort').value;
+
+    let lista = todos.filter(m => {
+      if (uf && m.uf !== uf) return false;
+      if (!termo) return true;
+      return norm(m.municipio).includes(termo) || norm(m.uf).includes(termo);
+    });
+
+    // Taxa de mortalidade: polaridade invertida (menor = melhor posição do
+    // município) — mesma convenção do resto do projeto, ver
+    // core/paleta_ranking.py::cor_por_percentil_invertido. Município sem
+    // dado (null) vai sempre pro fim da lista, em qualquer direção.
+    const semDado = (v) => v == null;
+    const ord = {
+      pop_desc:         (a,b) => (b.populacao ?? -1) - (a.populacao ?? -1),
+      pop_asc:          (a,b) => (a.populacao ?? Infinity) - (b.populacao ?? Infinity),
+      nome:             (a,b) => a.municipio.localeCompare(b.municipio, 'pt-BR'),
+      mortalidade_asc:  (a,b) => semDado(a.taxa_mortalidade_total) - semDado(b.taxa_mortalidade_total)
+                                  || (a.taxa_mortalidade_total ?? Infinity) - (b.taxa_mortalidade_total ?? Infinity),
+      mortalidade_desc: (a,b) => semDado(a.taxa_mortalidade_total) - semDado(b.taxa_mortalidade_total)
+                                  || (b.taxa_mortalidade_total ?? -Infinity) - (a.taxa_mortalidade_total ?? -Infinity),
+    };
+    lista.sort(ord[sort] || ord.pop_desc);
+
+    $('#contador').textContent = `Mostrando ${lista.length} de ${todos.length} município(s).`;
+    $('#vazio').classList.toggle('hidden', lista.length > 0);
+
+    const ul = $('#lista');
+    ul.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for (const m of lista) {
+      const li = document.createElement('li');
+      li.className = 'bg-white rounded-xl border border-rule px-4 py-3 flex flex-col md:flex-row md:items-center gap-3 hover:border-blue-dark/50 transition';
+      li.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <h3 class="title-display text-lg text-blue-dark truncate">${m.municipio} <span class="text-muted font-normal text-base">— ${m.uf}</span></h3>
+          <p class="text-xs text-muted mt-1">
+            População <strong class="text-ink">${fmtPop(m.populacao)}</strong> ·
+            Taxa de mortalidade no trânsito <strong class="text-ink">${fmtTaxa(m.taxa_mortalidade_total)}</strong> / 100 mil hab.
+          </p>
+        </div>
+        <a href="${m.pdf}" download="${m.pdf_filename}"
+           class="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 rounded-lg bg-blue-dark text-white text-sm font-semibold hover:bg-blue-dark/90 transition w-full md:w-auto"
+           aria-label="Baixar folheto de ${m.municipio} - ${m.uf}">
+          Baixar PDF
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/>
+          </svg>
+        </a>
+      `;
+      frag.appendChild(li);
+    }
+    ul.appendChild(frag);
+  }
+
+  $('#q').addEventListener('input', aplicar);
+  $('#q').addEventListener('search', aplicar);
+  $('#q').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#q').blur(); }
+  });
+  $('#uf').addEventListener('change', aplicar);
+  $('#sort').addEventListener('change', aplicar);
+
+  aplicar();
+})();
+</script>
+</body>
+</html>

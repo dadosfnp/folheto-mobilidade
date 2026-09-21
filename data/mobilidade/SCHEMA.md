@@ -26,6 +26,12 @@ impresso em `stderr`. Ver `python/temas/mobilidade.py`.
   "populacao": {"valor": null, "ano": null},
   "area_km2": null,
 
+  // Citação de destaque da página 2 ("Por que isso importa para a
+  // cidade"). Lido por python/temas/mobilidade.py::_pag_problema — campo
+  // ausente usa um texto padrão embutido no tema, mas dispara o aviso
+  // "'problema' ausente" em stderr (ver _avisar_se_ausente).
+  "problema": {"citacao": null},
+
   "frota": {
     // % de crescimento acumulado por período (tabela "Evolução da frota")
     "evolucao_pct": {
@@ -94,6 +100,24 @@ impresso em `stderr`. Ver `python/temas/mobilidade.py`.
   "_capa_foto": null   // caminho de uma imagem full-bleed opcional para a capa; sem ela, fundo azul sólido
 }
 ```
+
+## Duas armadilhas do motor (achadas ao construir o formulário de edição)
+
+`python/core/base_folheto.py` e `python/temas/mobilidade.py` usam
+`dict.get(chave, padrão)`, que só cai no padrão se a **chave não existir** —
+não protege contra a chave existir com `null`. Duas consequências práticas
+para quem editar um JSON à mão (o formulário web em `web/municipios/`
+já aplica as duas regras automaticamente):
+
+1. **`url`: ausente ≠ `null`.** Se `url` não existir no arquivo, o gerador
+   usa `FolhetoMobilidade.URL_PADRAO`. Se `url` existir como `null`, o QR
+   code quebra (`TypeError` não capturado). **Nunca escrever `"url": null`
+   — ou a chave tem um valor real, ou não existe.**
+2. **Coluna de série 100% vazia deve ser `[]`, nunca uma lista de `null`s.**
+   `draw_line_chart` plota por índice de posição; uma lista de `null` é
+   *truthy* em Python e entraria na legenda desenhando uma linha vazia (ver
+   `mobilidade.py`, filtro `if s["valores"]`). Lista vazia (`[]`) é filtrada
+   corretamente e a série some da legenda, como esperado quando não há dado.
 
 ## Campos do briefing AINDA SEM página implementada
 

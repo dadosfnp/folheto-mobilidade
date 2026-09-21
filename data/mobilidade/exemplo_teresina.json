@@ -1,0 +1,88 @@
+{
+  "_nota_proveniencia": "Segundo exemplo para validar o pipeline com mais de um município, NÃO dado publicável — Teresina não é um dos dois pilotos deste projeto (Campinas/SP e Montes Claros/MG). Transcrito por extenso da tabela 'Visão geral dos sinistros — Teresina' do documento de briefing (Rascunho rel seg. viária.pdf) — nenhum número foi estimado, arredondado ou completado por fora dela. O briefing só traz essa tabela de mortalidade para Teresina; população, área, frota, série histórica de mortes, internações e ranking de causas de morte são específicos de Fortaleza no mesmo documento e não foram transcritos aqui como se fossem de Teresina.",
+  "nome": "Teresina",
+  "uf": "PI",
+
+  "populacao": {"valor": null, "ano": null},
+  "area_km2": null,
+
+  "frota": {
+    "evolucao_pct": {
+      "2003_2010": {"total": null, "automoveis": null, "motocicletas": null},
+      "2011_2020": {"total": null, "automoveis": null, "motocicletas": null},
+      "2021_2025": {"total": null, "automoveis": null, "motocicletas": null},
+      "2003_2025": {"total": null, "automoveis": null, "motocicletas": null}
+    },
+    "atual": {"total": null, "automoveis": null, "motocicletas": null}
+  },
+
+  "mortalidade_2024": {
+    "total": {
+      "municipio": 21.2,
+      "rm": 24.4,  "rm_pos": 4,   "rm_total": 14,
+      "porte": 12.2, "porte_pos": 31, "porte_total": 33,
+      "estado": 34.3, "estado_pos": 49, "estado_total": 224,
+      "brasil": 17.4, "brasil_pos": 2730, "brasil_total": 5570,
+      "capitais": 9.2, "capitais_pos": 25, "capitais_total": 27
+    },
+    "motociclistas": {
+      "municipio": 14.2,
+      "rm": 16.4, "rm_pos": 5,   "rm_total": 14,
+      "porte": 5.0, "porte_pos": 33, "porte_total": 33,
+      "estado": 25.0, "estado_pos": 48, "estado_total": 224,
+      "brasil": 7.3, "brasil_pos": 3952, "brasil_total": 5570,
+      "capitais": 3.6, "capitais_pos": 26, "capitais_total": 27
+    },
+    "pedestres": {
+      "municipio": 1.9,
+      "rm": 2.5, "rm_pos": 9,   "rm_total": 14,
+      "porte": 2.6, "porte_pos": 7,  "porte_total": 33,
+      "estado": 2.7, "estado_pos": 172, "estado_total": 224,
+      "brasil": 2.6, "brasil_pos": 3886, "brasil_total": 5570,
+      "capitais": 2.2, "capitais_pos": 6,  "capitais_total": 27
+    },
+    "ciclistas": {
+      "municipio": 1.4,
+      "rm": 1.8, "rm_pos": 9,   "rm_total": 14,
+      "porte": 0.6, "porte_pos": 30, "porte_total": 33,
+      "estado": 1.5, "estado_pos": 203, "estado_total": 224,
+      "brasil": 0.7, "brasil_pos": 4929, "brasil_total": 5570,
+      "capitais": 0.4, "capitais_pos": 25, "capitais_total": 27
+    }
+  },
+
+  "mortes_serie_historica": {
+    "_nota": "O briefing não traz série histórica de mortes para Teresina (o gráfico de linha 2010-2024 no mesmo documento é de Fortaleza) — deixado vazio de propósito.",
+    "anos": [],
+    "total": [],
+    "motociclistas": [],
+    "pedestres": [],
+    "ciclistas": []
+  },
+
+  "internacoes_2025": {
+    "total":          {"municipio": null, "porte": null, "estado": null, "brasil": null},
+    "motociclistas":  {"municipio": null, "porte": null, "estado": null, "brasil": null},
+    "pedestres":      {"municipio": null, "porte": null, "estado": null, "brasil": null},
+    "ciclistas":      {"municipio": null, "porte": null, "estado": null, "brasil": null}
+  },
+
+  "internacoes_serie_historica": {
+    "anos": [],
+    "total": [],
+    "gestao_atual": {"inicio": null, "fim": null}
+  },
+
+  "ranking_causas_morte": {
+    "fonte": null,
+    "total_causas": null,
+    "_nota": "O briefing não traz ranking de causas de morte para Teresina (a TABELA 01 no mesmo documento é de Fortaleza) — deixado vazio de propósito.",
+    "posicao_acidentes_transito": {}
+  },
+
+  "leitos_uti_hipotetico": {
+    "nota": "Pergunta orientadora do projeto (item 8 do briefing): se não houvesse acidentes de trânsito, quantos leitos de UTI ficariam disponíveis para outras doenças? Cálculo pendente do dado de internação consolidado."
+  },
+
+  "url": "https://fnp.org.br/mobilidade"
+}

@@ -1,0 +1,183 @@
+{% extends "municipios/base.html" %}
+{% load static %}
+{% block titulo %}Municípios — Folheto Mobilidade{% endblock %}
+{% block header_extra %}
+  <p class="text-xs md:text-sm text-muted whitespace-nowrap">{{ municipios|length }} município{{ municipios|length|pluralize }} disponíve{{ municipios|length|pluralize:"l,is" }}</p>
+{% endblock %}
+{% block conteudo %}
+  <section class="mb-6">
+    <h2 class="title-display text-2xl sm:text-3xl md:text-4xl text-blue-dark leading-tight">Encontre o folheto do seu município</h2>
+    <p class="text-muted mt-2 max-w-2xl text-sm md:text-base">
+      Cada folheto traz a comparação da taxa de mortalidade no trânsito, a
+      evolução da frota e o peso das internações por sinistro no sistema de
+      saúde. Gere o PDF mais recente e baixe.
+    </p>
+  </section>
+
+  <section class="mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+        <img src="{% static 'municipios/preview/pagina-1.jpg' %}" alt="Capa do folheto, com o nome do município"
+             width="720" height="720" loading="lazy" decoding="async"
+             class="w-full h-full object-cover">
+      </figure>
+      <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+        <img src="{% static 'municipios/preview/pagina-4.jpg' %}" alt="Tabela de taxa de mortalidade no trânsito, comparando o município com RM, porte, estado, Brasil e capitais"
+             width="720" height="720" loading="lazy" decoding="async"
+             class="w-full h-full object-cover">
+      </figure>
+      <figure class="preview-fig bg-white rounded-xl border border-rule overflow-hidden">
+        <img src="{% static 'municipios/preview/pagina-5.jpg' %}" alt="Gráfico de linha com a evolução das mortes no trânsito por modo, 2010-2024"
+             width="720" height="720" loading="lazy" decoding="async"
+             class="w-full h-full object-cover">
+      </figure>
+    </div>
+
+    <p class="text-xs text-muted mt-2">
+      Capa, taxa de mortalidade e série histórica. Cada folheto compara o
+      município com o recorte metropolitano, cidades de mesmo porte, o
+      estado, o Brasil e as capitais.
+    </p>
+  </section>
+
+  {% if municipios %}
+  <section class="bg-white rounded-2xl border border-rule p-4 md:p-5 mb-5 flex flex-col md:flex-row gap-3 items-stretch md:items-end">
+    <label class="flex-1">
+      <span class="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">Busca</span>
+      <input id="q" type="search" placeholder="Ex.: Campinas"
+             autocomplete="off" autocorrect="off" spellcheck="false"
+             enterkeyhint="search" inputmode="search"
+             class="w-full px-3 py-2 rounded-lg border border-rule bg-white focus:outline-none focus:ring-2 focus:ring-blue-dark/40">
+    </label>
+    <label>
+      <span class="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">Ordenar por</span>
+      <select id="sort" class="px-3 py-2 rounded-lg border border-rule bg-white focus:outline-none focus:ring-2 focus:ring-blue-dark/40">
+        <option value="nome">Nome A→Z</option>
+        <option value="pop_desc">População ↓</option>
+        <option value="pop_asc">População ↑</option>
+        <option value="pdf">Status do PDF</option>
+      </select>
+    </label>
+  </section>
+
+  <p id="contador" class="text-sm text-muted mb-3"></p>
+
+  <ul id="lista" class="grid gap-2">
+    {% for m in municipios %}
+    <li class="municipio-card bg-white rounded-xl border border-rule px-4 py-3 flex flex-col md:flex-row md:items-center gap-3 hover:border-blue-dark/50 transition"
+        data-nome="{{ m.nome|lower }}" data-uf="{{ m.uf|lower }}"
+        data-populacao="{{ m.populacao|default:0 }}"
+        data-pdf="{% if m.erro %}9{% elif m.pdf_desatualizado %}1{% elif m.pdf_existe %}0{% else %}2{% endif %}">
+      <div class="flex-1 min-w-0">
+        {% if m.erro %}
+          <div class="flex items-baseline gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm align-middle bg-red-burnt shrink-0" title="Não foi possível ler os dados deste município"></span>
+            <h3 class="title-display text-lg text-red-burnt truncate">{{ m.slug }}</h3>
+          </div>
+          <p class="text-xs text-red-burnt mt-1">Não foi possível ler os dados deste município.</p>
+        {% else %}
+          <div class="flex items-baseline gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm align-middle shrink-0 {% if m.pdf_desatualizado %}bg-red-burnt{% elif m.pdf_existe %}bg-green{% else %}bg-rule{% endif %}"
+                  title="{% if m.pdf_desatualizado %}Folheto desatualizado{% elif m.pdf_existe %}Folheto gerado{% else %}Folheto ainda não gerado{% endif %}"></span>
+            <h3 class="title-display text-lg text-blue-dark truncate">
+              {{ m.nome }} {% if m.uf %}<span class="text-muted font-normal text-base">— {{ m.uf }}</span>{% endif %}
+            </h3>
+          </div>
+          <p class="text-xs text-muted mt-1">
+            População <strong class="text-ink">{{ m.populacao|default:"n/d" }}</strong>
+            {% if m.pdf_desatualizado %}
+              · <span class="text-red-burnt">Folheto desatualizado</span>
+            {% elif m.pdf_existe %}
+              · <span class="text-green">Folheto gerado</span>
+            {% else %}
+              · Folheto ainda não gerado
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+      {% if not m.erro %}
+      <div class="shrink-0 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+        {% if m.pdf_existe %}
+        <a href="{% url 'municipios:baixar_pdf' m.slug %}"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 rounded-lg bg-blue-dark text-white text-sm font-semibold hover:bg-blue-dark/90 transition w-full md:w-auto no-underline"
+           aria-label="Baixar folheto de {{ m.nome }}{% if m.uf %} - {{ m.uf }}{% endif %}">
+          Baixar PDF
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/>
+          </svg>
+        </a>
+        {% endif %}
+        <form method="post" action="{% url 'municipios:gerar' m.slug %}" class="w-full md:w-auto">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 md:py-2 rounded-lg border border-rule text-blue-dark text-sm font-semibold hover:bg-field transition">
+            {% if m.pdf_existe %}Gerar de novo{% else %}Gerar PDF{% endif %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <p id="vazio" class="hidden text-muted text-center py-12">
+    Nenhum município encontrado para esta busca.
+  </p>
+
+  <script>
+  (function() {
+    const $ = (s) => document.querySelector(s);
+    const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const cards = Array.from(document.querySelectorAll('.municipio-card'));
+    const lista = $('#lista');
+    const total = cards.length;
+
+    // Placeholder do campo de busca alternando entre exemplos de município
+    // — sempre começa pelos 2 pilotos (Campinas, Montes Claros), depois
+    // cicla por outras capitais. Pausa se o campo estiver focado ou já tiver
+    // texto, pra nunca competir com o que a pessoa está digitando.
+    const EXEMPLOS_BUSCA = [
+      'Campinas', 'Montes Claros', 'Fortaleza', 'Teresina', 'Belo Horizonte',
+      'Curitiba', 'Recife', 'Porto Alegre', 'Salvador', 'Manaus',
+    ];
+    const campoBusca = $('#q');
+    let exemploIdx = 0;
+    setInterval(() => {
+      if (document.activeElement === campoBusca || campoBusca.value) return;
+      exemploIdx = (exemploIdx + 1) % EXEMPLOS_BUSCA.length;
+      campoBusca.placeholder = `Ex.: ${EXEMPLOS_BUSCA[exemploIdx]}`;
+    }, 2200);
+
+    function aplicar() {
+      const termo = norm($('#q').value);
+      const sort = $('#sort').value;
+
+      const visiveis = cards.filter((c) => {
+        if (!termo) return true;
+        return norm(c.dataset.nome).includes(termo) || norm(c.dataset.uf).includes(termo);
+      });
+
+      const ord = {
+        nome:     (a, b) => a.dataset.nome.localeCompare(b.dataset.nome, 'pt-BR'),
+        pop_desc: (a, b) => (b.dataset.populacao - a.dataset.populacao),
+        pop_asc:  (a, b) => (a.dataset.populacao - b.dataset.populacao),
+        pdf:      (a, b) => (a.dataset.pdf - b.dataset.pdf),
+      };
+      visiveis.sort(ord[sort] || ord.nome);
+
+      cards.forEach((c) => c.classList.add('hidden'));
+      visiveis.forEach((c) => { c.classList.remove('hidden'); lista.appendChild(c); });
+
+      $('#contador').textContent = `Mostrando ${visiveis.length} de ${total} município(s).`;
+      $('#vazio').classList.toggle('hidden', visiveis.length > 0);
+    }
+
+    $('#q').addEventListener('input', aplicar);
+    $('#sort').addEventListener('change', aplicar);
+    aplicar();
+  })();
+  </script>
+  {% else %}
+    <p class="text-muted">Nenhum município cadastrado ainda.</p>
+  {% endif %}
+{% endblock %}
